@@ -15,9 +15,18 @@ For example:
 
 ## Todo
 
-- [ ] List registered distros
+### Required
+
+- [x] List registered distros
 - [ ] Show default distro
 - [ ] Create distros
 - [ ] Delete distros
 - [ ] Bulk actions
+
+### Stretch
+
 - [ ] Managing configs
+- [ ] Managing templates
+- [ ] Reporting data
+- [ ] Tag management
+- [ ] Pro for WSL integration
