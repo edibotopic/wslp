@@ -18,10 +18,11 @@ For example:
 ### Required
 
 - [x] List registered distros
-- [ ] Show default distro
+- [x] Show default distro
 - [ ] Create distros
 - [ ] Delete distros
 - [ ] Bulk actions
+- [x] Pretty output
 
 ### Stretch
 
