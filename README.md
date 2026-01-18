@@ -19,9 +19,11 @@ For example:
 
 - [x] List registered distros
 - [x] Show default distro
-- [ ] Create distros
+- [x] Bulk install distros (sequential)
+- [ ] Bulk install (concurrent)
+- [ ] Rename
+- [ ] Register local tarballs
 - [ ] Delete distros
-- [ ] Bulk actions
 - [x] Pretty output
 
 ### Stretch
