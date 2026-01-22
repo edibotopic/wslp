@@ -28,6 +28,18 @@ var installCmd = &cobra.Command{
 				continue
 			}
 			fmt.Printf("Successfully installed %s\n", distro)
+
+			d := gowsl.NewDistro(context.Background(), distro)
+			registered, err := d.IsRegistered()
+			if err != nil {
+				fmt.Printf("Error checking registration: %v\n", err)
+			} else if registered {
+				fmt.Printf("%s was downloaded in the modern format and is already registered\n", distro)
+				fmt.Printf("Launch with wsl -d %s", distro)
+			} else {
+				fmt.Printf("%s was downloaded in the classic format and must be registered\n", distro)
+				fmt.Printf("Register with wsl --register %s", distro)
+			}
 		}
 	},
 }
