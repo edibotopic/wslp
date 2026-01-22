@@ -20,9 +20,7 @@ var installCmd = &cobra.Command{
 			return
 		}
 
-		// TODO: install distros concurrently
-		// TODO: investigate why classic distros (old format) don't install
-		// TODO: investigate if custom name for distro can be passed
+		// TODO: try to install distros concurrently
 		for _, distro := range args {
 			fmt.Printf("Installing %s...\n", distro)
 			if err := gowsl.Install(context.Background(), distro); err != nil {
