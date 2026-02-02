@@ -51,7 +51,7 @@ var defaultChangeVersionCmd = &cobra.Command{
 
 func init() {
 	// Add the top-level default command to root
-	rootCmd.AddCommand(defaultCmd)
+	RootCmd.AddCommand(defaultCmd)
 
 	// Add subcommands to the default command
 	defaultCmd.AddCommand(defaultShowCmd)
