@@ -2,6 +2,16 @@
 
 A CLI tool that wraps the WSL api, making common and bulk operations easier.
 
+## Usage
+
+TODO...
+
+## Tests
+
+```bash
+go test -cover
+```
+
 ## Documentation
 
 To build and preview the documentation locally:
