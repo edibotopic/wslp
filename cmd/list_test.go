@@ -39,11 +39,15 @@ func TestListCommand(t *testing.T) {
 		skipIfNotWindows(t)
 
 		buf := new(bytes.Buffer)
-		RootCmd.SetOut(buf)
-		RootCmd.SetErr(buf)
-		RootCmd.SetArgs([]string{"list"})
+		
+		// Create a fresh command instance for this test
+		cmd := RootCmd
+		cmd.SetOut(buf)
+		cmd.SetErr(buf)
+		cmd.SetArgs([]string{"list"})
+		defer cmd.SetArgs([]string{}) // Reset after test
 
-		err := RootCmd.Execute()
+		err := cmd.Execute()
 		if err != nil {
 			t.Fatalf("command failed: %v", err)
 		}

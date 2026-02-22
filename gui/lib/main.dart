@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const MainApp());
@@ -29,6 +30,17 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final List<String> _logs = [];
+  final List<String> _distros = [];
+  String _defaultDistro = '';
+  bool _isInstalling = false;
+  String _currentlyInstalling = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Load distros and default on startup
+    _loadDistros();
+  }
 
   void _addLog(String message) {
     setState(() {
@@ -36,165 +48,573 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
 
+  Future<void> _loadDistros() async {
+    _addLog('Loading distros...');
+    try {
+      final distros = await ApiService.getDistros();
+      final defaultDistro = await ApiService.getDefaultDistro();
+      setState(() {
+        _distros.clear();
+        _distros.addAll(distros);
+        _defaultDistro = defaultDistro;
+      });
+      _addLog('Loaded ${distros.length} distro(s), default: "$defaultDistro"');
+    } catch (e) {
+      _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _showDefaultDistro() async {
+    _addLog('Getting default distro...');
+    try {
+      final defaultDistro = await ApiService.getDefaultDistro();
+      _addLog('Default distro: $defaultDistro');
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Default WSL Distro'),
+            content: Text(defaultDistro),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _setDefaultDistro(String name) async {
+    _addLog('Setting $name as default...');
+    try {
+      await ApiService.setDefaultDistro(name);
+      _addLog('✓ Set $name as default');
+      _loadDistros();
+    } catch (e) {
+      _addLog('✗ Error: $e');
+    }
+  }
+
+  Future<void> _unregisterDistro(String name) async {
+    // Confirm deletion
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: Text('Are you sure you want to unregister $name?\n\nThis will remove the distro but not delete its files.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _addLog('Unregistering $name...');
+      try {
+        await ApiService.unregisterDistro(name);
+        _addLog('✓ Unregistered $name');
+        _loadDistros();
+      } catch (e) {
+        _addLog('✗ Error: $e');
+      }
+    }
+  }
+
+  Future<void> _showInstallDialog() async {
+    _addLog('Loading available distros...');
+    try {
+      final available = await ApiService.getAvailableDistros();
+      _addLog('Loaded ${available.length} available distros');
+      
+      if (!mounted) return;
+
+      final selected = await showDialog<List<String>>(
+        context: context,
+        builder: (context) => _InstallDialog(available: available),
+      );
+
+      if (selected != null && selected.isNotEmpty) {
+        _installDistros(selected);
+      }
+    } catch (e) {
+      _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _installDistros(List<String> distros) async {
+    setState(() {
+      _isInstalling = true;
+      _currentlyInstalling = distros.join(', ');
+    });
+    
+    _addLog('Installing ${distros.length} distro(s): ${distros.join(", ")}');
+    try {
+      final results = await ApiService.installDistros(distros);
+      
+      for (var result in results) {
+        if (result['success'] as bool) {
+          _addLog('✓ ${result['distro']}: ${result['message']}');
+        } else {
+          _addLog('✗ ${result['distro']}: ${result['message']}');
+        }
+      }
+      
+      // Refresh the distro list
+      _loadDistros();
+    } catch (e) {
+      _addLog('✗ Error: $e');
+    } finally {
+      setState(() {
+        _isInstalling = false;
+        _currentlyInstalling = '';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Row(
-              children: <Widget>[
-                const Spacer(),
-                ButtonGroupLeft(enabled: true, onLog: _addLog),
-                ButtonGroupRight(enabled: true, onLog: _addLog),
-                const Spacer(),
-              ],
-            ),
-          ),
-        ),
+    return Row(
+      children: [
+        // Sidebar with buttons
         Container(
-          height: 200,
+          width: 200,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: Border(
-              top: BorderSide(
+              right: BorderSide(
                 color: Theme.of(context).colorScheme.outline,
                 width: 1,
               ),
             ),
           ),
-          // NOTE: show a log of recent actions
-          // TODO: this should be toggled by the user
-          child: ListView.builder(
-            padding: const EdgeInsets.all(8.0),
-            itemCount: _logs.length,
-            itemBuilder: (context, index) {
-              final opacity = 1.0 - (index * 0.1).clamp(0.0, 0.7);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Opacity(
-                  opacity: opacity,
-                  child: Text(
-                    _logs[_logs.length - 1 - index],
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'WSL Plus',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(8.0),
+                  children: [
+                    _buildButton('Refresh List', _loadDistros),
+                    _buildButton('WSL Info', null),
+                    const SizedBox(height: 16),
+                    _buildSectionHeader(context, 'Bulk Actions'),
+                    _buildButton('Install', _showInstallDialog),
+                    _buildButton('Rename', null),
+                    _buildButton('Backup', null),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Main content area
+        Expanded(
+          child: Column(
+            children: [
+              // Distro list area
+              Expanded(
+                child: _distros.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.computer,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No distros loaded',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Click "Refresh List" to reload',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Builder(
+                        builder: (context) {
+                          // Sort so default is first (case-insensitive comparison)
+                          final sortedDistros = List<String>.from(_distros);
+                          sortedDistros.sort((a, b) {
+                            if (a.toLowerCase() == _defaultDistro.toLowerCase()) return -1;
+                            if (b.toLowerCase() == _defaultDistro.toLowerCase()) return 1;
+                            return a.toLowerCase().compareTo(b.toLowerCase());
+                          });
+                          
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(16.0),
+                            itemCount: sortedDistros.length,
+                            itemBuilder: (context, index) {
+                              final distro = sortedDistros[index];
+                              final isDefault = distro.toLowerCase() == _defaultDistro.toLowerCase();
+                              
+                              return Card(
+                            margin: const EdgeInsets.only(bottom: 8.0),
+                            elevation: isDefault ? 4 : 1,
+                            color: isDefault 
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : null,
+                            child: ListTile(
+                              leading: Icon(
+                                Icons.computer,
+                                color: isDefault 
+                                    ? Theme.of(context).colorScheme.primary
+                                    : null,
+                                size: isDefault ? 28 : 24,
+                              ),
+                              title: Row(
+                                children: [
+                                  Text(
+                                    distro,
+                                    style: isDefault 
+                                        ? const TextStyle(fontWeight: FontWeight.bold)
+                                        : null,
+                                  ),
+                                  if (isDefault) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'DEFAULT',
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              color: Theme.of(context).colorScheme.onPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                itemBuilder: (context) {
+                                  final items = <PopupMenuEntry<String>>[
+                                    const PopupMenuItem(
+                                      value: 'info',
+                                      child: Text('View Info'),
+                                    ),
+                                    if (!isDefault)
+                                      const PopupMenuItem(
+                                        value: 'set-default',
+                                        child: Text('Set as Default'),
+                                      ),
+                                    const PopupMenuItem(
+                                      value: 'rename',
+                                      child: Text('Rename'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'backup',
+                                      child: Text('Backup'),
+                                    ),
+                                    const PopupMenuDivider(),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Delete'),
+                                    ),
+                                  ];
+                                  return items;
+                                },
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'info':
+                                      _addLog('Info: $distro');
+                                      break;
+                                    case 'set-default':
+                                      _setDefaultDistro(distro);
+                                      break;
+                                    case 'rename':
+                                      _addLog('Rename: $distro');
+                                      break;
+                                    case 'backup':
+                                      _addLog('Backup: $distro');
+                                      break;
+                                    case 'delete':
+                                      _unregisterDistro(distro);
+                                      break;
+                                  }
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+              ),
+              // Log area at bottom
+              Container(
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).colorScheme.outline,
+                      width: 1,
+                    ),
                   ),
                 ),
-              );
-            },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.terminal,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Activity Log',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const Spacer(),
+                          if (_logs.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear_all, size: 20),
+                              onPressed: () {
+                                setState(() {
+                                  _logs.clear();
+                                });
+                              },
+                              tooltip: 'Clear log',
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: _logs.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No activity yet',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(8.0),
+                              itemCount: _logs.length + (_isInstalling ? 1 : 0),
+                              reverse: true,
+                              itemBuilder: (context, index) {
+                                if (index == 0 && _isInstalling) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              Theme.of(context).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Installing $_currentlyInstalling...',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  fontFamily: 'monospace',
+                                                  color: Theme.of(context).colorScheme.primary,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                
+                                final logIndex = _isInstalling ? index - 1 : index;
+                                final log = _logs[_logs.length - 1 - logIndex];
+                                Color? textColor = Theme.of(context).colorScheme.onSurfaceVariant;
+                                
+                                if (log.startsWith('✓')) {
+                                  textColor = Colors.green;
+                                } else if (log.startsWith('✗')) {
+                                  textColor = Colors.red;
+                                }
+                                
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  child: Text(
+                                    log,
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontFamily: 'monospace',
+                                          color: textColor,
+                                        ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
-}
 
-class ButtonGroupLeft extends StatelessWidget {
-  const ButtonGroupLeft({
-    super.key,
-    required this.enabled,
-    required this.onLog,
-  });
-
-  final bool enabled;
-  final Function(String) onLog;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: <Widget>[
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Data',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              Container(
-                width: 40,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('listed WSL instances') : null,
-            child: const Text('List'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('info about WSL instances') : null,
-            child: const Text('Info'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('default WSL version') : null,
-            child: const Text('Default'),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 4.0),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildButton(String label, VoidCallback? onPressed) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonal(
+          onPressed: onPressed,
+          child: Text(label),
+        ),
       ),
     );
   }
 }
 
-class ButtonGroupRight extends StatelessWidget {
-  const ButtonGroupRight({
-    super.key,
-    required this.enabled,
-    required this.onLog,
-  });
+class _InstallDialog extends StatefulWidget {
+  final List<Map<String, String>> available;
 
-  final bool enabled;
-  final Function(String) onLog;
+  const _InstallDialog({required this.available});
+
+  @override
+  State<_InstallDialog> createState() => _InstallDialogState();
+}
+
+class _InstallDialogState extends State<_InstallDialog> {
+  final Set<String> _selected = {};
+  String _searchQuery = '';
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: <Widget>[
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Actions',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+    final filtered = widget.available.where((d) {
+      if (_searchQuery.isEmpty) return true;
+      final name = d['name']!.toLowerCase();
+      final friendly = d['friendlyName']!.toLowerCase();
+      final query = _searchQuery.toLowerCase();
+      return name.contains(query) || friendly.contains(query);
+    }).toList();
+
+    return AlertDialog(
+      title: const Text('Install WSL Distros'),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Search',
+                prefixIcon: Icon(Icons.search),
               ),
-              Container(
-                width: 40,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(2),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final distro = filtered[index];
+                  final name = distro['name']!;
+                  final friendlyName = distro['friendlyName']!;
+                  
+                  return CheckboxListTile(
+                    title: Text(friendlyName),
+                    subtitle: Text(name),
+                    value: _selected.contains(name),
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          _selected.add(name);
+                        } else {
+                          _selected.remove(name);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            if (_selected.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  '${_selected.length} distro(s) selected',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
-            ],
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('installed WSL instances') : null,
-            child: const Text('Install'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('renamed WSL instances') : null,
-            child: const Text('Rename'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('backed up WSL instances') : null,
-            child: const Text('Backup'),
-          ),
-        ],
+          ],
+        ),
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _selected.isEmpty
+              ? null
+              : () => Navigator.pop(context, _selected.toList()),
+          child: const Text('Install'),
+        ),
+      ],
     );
   }
 }

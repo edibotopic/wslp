@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	gowsl "github.com/ubuntu/gowsl"
+	"wslp/internal/wsl"
 )
 
 var listCmd = &cobra.Command{
@@ -14,20 +14,21 @@ var listCmd = &cobra.Command{
 	Short: "List registered WSL distros",
 	Long:  `Lists all WSL distributions registered on the Windows host.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("Finding registered distros...")
+		fmt.Fprintln(cmd.OutOrStdout(), "Finding registered distros...")
 
-		distroList, err := gowsl.RegisteredDistros(context.Background())
+		distros, err := wsl.ListDistros(context.Background())
 
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(cmd.ErrOrStderr(), err)
+			return
 		}
 
 		// print the number of distros
-		fmt.Println(len(distroList), "distros are registered:")
+		fmt.Fprintf(cmd.OutOrStdout(), "%d distros are registered:\n", len(distros))
 
 		// print the list of distros
-		for i := range distroList {
-			fmt.Println(distroList[i].Name())
+		for i := range distros {
+			fmt.Fprintln(cmd.OutOrStdout(), distros[i].Name)
 		}
 	},
 }
