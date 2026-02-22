@@ -32,6 +32,13 @@ class _MainScreenState extends State<MainScreen> {
   final List<String> _logs = [];
   final List<String> _distros = [];
 
+  @override
+  void initState() {
+    super.initState();
+    // Load distros on startup
+    _loadDistros();
+  }
+
   void _addLog(String message) {
     setState(() {
       _logs.add(message);
@@ -54,182 +61,222 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: <Widget>[
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.all(4.0),
-            child: Row(
-              children: <Widget>[
-                const Spacer(),
-                ButtonGroupLeft(enabled: true, onLog: _addLog, onListPressed: _loadDistros),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: _distros.isEmpty
-                        ? const Center(child: Text('No distros loaded'))
-                        : ListView.builder(
-                            itemCount: _distros.length,
-                            itemBuilder: (context, index) {
-                              return Card(
-                                margin: const EdgeInsets.symmetric(vertical: 4.0),
-                                child: ListTile(
-                                  title: Text(_distros[index]),
-                                ),
-                              );
-                            },
-                          ),
-                  ),
-                ),
-                ButtonGroupRight(enabled: true, onLog: _addLog),
-                const Spacer(),
-              ],
-            ),
-          ),
-        ),
+    return Row(
+      children: [
+        // Sidebar with buttons
         Container(
-          height: 200,
+          width: 200,
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: Border(
-              top: BorderSide(
+              right: BorderSide(
                 color: Theme.of(context).colorScheme.outline,
                 width: 1,
               ),
             ),
           ),
-          // NOTE: show a log of recent actions
-          // TODO: this should be toggled by the user
-          child: ListView.builder(
-            padding: const EdgeInsets.all(8.0),
-            itemCount: _logs.length,
-            itemBuilder: (context, index) {
-              final opacity = 1.0 - (index * 0.1).clamp(0.0, 0.7);
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                child: Opacity(
-                  opacity: opacity,
-                  child: Text(
-                    _logs[_logs.length - 1 - index],
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  'WSL Plus',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(8.0),
+                  children: [
+                    _buildSectionHeader(context, 'WSL Actions'),
+                    _buildButton('Refresh List', _loadDistros),
+                    _buildButton('WSL Info', () => _addLog('WSL Info clicked')),
+                    _buildButton('WSL Default', () => _addLog('WSL Default clicked')),
+                    const SizedBox(height: 16),
+                    _buildSectionHeader(context, 'Distro Actions'),
+                    _buildButton('Install', () => _addLog('Install clicked')),
+                    _buildButton('Rename', () => _addLog('Rename clicked')),
+                    _buildButton('Backup', () => _addLog('Backup clicked')),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Main content area
+        Expanded(
+          child: Column(
+            children: [
+              // Distro list area
+              Expanded(
+                child: _distros.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.computer,
+                              size: 64,
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'No distros loaded',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Click "Refresh List" to reload',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(16.0),
+                        itemCount: _distros.length,
+                        itemBuilder: (context, index) {
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 8.0),
+                            child: ListTile(
+                              leading: Icon(
+                                Icons.computer,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              title: Text(_distros[index]),
+                              trailing: PopupMenuButton(
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'info',
+                                    child: Text('View Info'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'rename',
+                                    child: Text('Rename'),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'backup',
+                                    child: Text('Backup'),
+                                  ),
+                                ],
+                                onSelected: (value) {
+                                  _addLog('$value: ${_distros[index]}');
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              // Log area at bottom
+              Container(
+                height: 150,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).colorScheme.outline,
+                      width: 1,
+                    ),
                   ),
                 ),
-              );
-            },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.terminal,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.secondary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Activity Log',
+                            style: Theme.of(context).textTheme.labelLarge,
+                          ),
+                          const Spacer(),
+                          if (_logs.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear_all, size: 20),
+                              onPressed: () {
+                                setState(() {
+                                  _logs.clear();
+                                });
+                              },
+                              tooltip: 'Clear log',
+                            ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1),
+                    Expanded(
+                      child: _logs.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No activity yet',
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    ),
+                              ),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(8.0),
+                              itemCount: _logs.length,
+                              reverse: true,
+                              itemBuilder: (context, index) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                  child: Text(
+                                    _logs[_logs.length - 1 - index],
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          fontFamily: 'monospace',
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
-}
 
-class ButtonGroupLeft extends StatelessWidget {
-  const ButtonGroupLeft({
-    super.key,
-    required this.enabled,
-    required this.onLog,
-    required this.onListPressed,
-  });
-
-  final bool enabled;
-  final Function(String) onLog;
-  final VoidCallback onListPressed;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSectionHeader(BuildContext context, String title) {
     return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: <Widget>[
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Data',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              Container(
-                width: 40,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-          ElevatedButton(
-            onPressed: enabled ? onListPressed : null,
-            child: const Text('List'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('info about WSL instances') : null,
-            child: const Text('Info'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('default WSL version') : null,
-            child: const Text('Default'),
-          ),
-        ],
+      padding: const EdgeInsets.fromLTRB(8.0, 8.0, 8.0, 4.0),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.primary,
+            ),
       ),
     );
   }
-}
 
-class ButtonGroupRight extends StatelessWidget {
-  const ButtonGroupRight({
-    super.key,
-    required this.enabled,
-    required this.onLog,
-  });
-
-  final bool enabled;
-  final Function(String) onLog;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildButton(String label, VoidCallback onPressed) {
     return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: <Widget>[
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                'Actions',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              Container(
-                width: 40,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('installed WSL instances') : null,
-            child: const Text('Install'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('renamed WSL instances') : null,
-            child: const Text('Rename'),
-          ),
-          ElevatedButton(
-            onPressed: enabled ? () => onLog('backed up WSL instances') : null,
-            child: const Text('Backup'),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonal(
+          onPressed: onPressed,
+          child: Text(label),
+        ),
       ),
     );
   }
