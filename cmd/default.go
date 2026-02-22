@@ -20,13 +20,14 @@ var defaultShowCmd = &cobra.Command{
 	Short: "Show the default distro",
 	Long:  `Prints the defaults WSL distribution on the Windows host.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("The default WSL distro is:")
+		fmt.Fprintln(cmd.OutOrStdout(), "The default WSL distro is:")
 
 		defaultDistro, _, err := gowsl.DefaultDistro(context.Background())
 		if err != nil {
-			fmt.Println(err)
+			fmt.Fprintln(cmd.ErrOrStderr(), err)
+			return
 		}
-		fmt.Println(defaultDistro.Name())
+		fmt.Fprintln(cmd.OutOrStdout(), defaultDistro.Name())
 	},
 }
 
