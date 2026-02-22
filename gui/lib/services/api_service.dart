@@ -62,4 +62,28 @@ class ApiService {
       throw Exception('Failed to install distros');
     }
   }
+
+  static Future<void> unregisterDistro(String name) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/unregister'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'name': name}),
+    );
+    
+    if (response.statusCode != 200) {
+      throw Exception('Failed to unregister distro');
+    }
+  }
+
+  static Future<void> setDefaultDistro(String name) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/set-default'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'name': name}),
+    );
+    
+    if (response.statusCode != 200) {
+      throw Exception('Failed to set default distro');
+    }
+  }
 }
