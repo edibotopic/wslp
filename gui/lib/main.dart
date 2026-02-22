@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/api_service.dart';
 
 void main() {
   runApp(const MainApp());
@@ -29,11 +30,26 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   final List<String> _logs = [];
+  final List<String> _distros = [];
 
   void _addLog(String message) {
     setState(() {
       _logs.add(message);
     });
+  }
+
+  Future<void> _loadDistros() async {
+    _addLog('Loading distros...');
+    try {
+      final distros = await ApiService.getDistros();
+      setState(() {
+        _distros.clear();
+        _distros.addAll(distros);
+      });
+      _addLog('Loaded ${distros.length} distro(s)');
+    } catch (e) {
+      _addLog('Error: $e');
+    }
   }
 
   @override
@@ -46,7 +62,25 @@ class _MainScreenState extends State<MainScreen> {
             child: Row(
               children: <Widget>[
                 const Spacer(),
-                ButtonGroupLeft(enabled: true, onLog: _addLog),
+                ButtonGroupLeft(enabled: true, onLog: _addLog, onListPressed: _loadDistros),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: _distros.isEmpty
+                        ? const Center(child: Text('No distros loaded'))
+                        : ListView.builder(
+                            itemCount: _distros.length,
+                            itemBuilder: (context, index) {
+                              return Card(
+                                margin: const EdgeInsets.symmetric(vertical: 4.0),
+                                child: ListTile(
+                                  title: Text(_distros[index]),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ),
                 ButtonGroupRight(enabled: true, onLog: _addLog),
                 const Spacer(),
               ],
@@ -96,10 +130,12 @@ class ButtonGroupLeft extends StatelessWidget {
     super.key,
     required this.enabled,
     required this.onLog,
+    required this.onListPressed,
   });
 
   final bool enabled;
   final Function(String) onLog;
+  final VoidCallback onListPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +164,7 @@ class ButtonGroupLeft extends StatelessWidget {
             ],
           ),
           ElevatedButton(
-            onPressed: enabled ? () => onLog('listed WSL instances') : null,
+            onPressed: enabled ? onListPressed : null,
             child: const Text('List'),
           ),
           ElevatedButton(
