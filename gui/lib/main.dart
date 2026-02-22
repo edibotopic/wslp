@@ -31,6 +31,8 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   final List<String> _logs = [];
   final List<String> _distros = [];
+  bool _isInstalling = false;
+  String _currentlyInstalling = '';
 
   @override
   void initState() {
@@ -56,6 +58,82 @@ class _MainScreenState extends State<MainScreen> {
       _addLog('Loaded ${distros.length} distro(s)');
     } catch (e) {
       _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _showDefaultDistro() async {
+    _addLog('Getting default distro...');
+    try {
+      final defaultDistro = await ApiService.getDefaultDistro();
+      _addLog('Default distro: $defaultDistro');
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Default WSL Distro'),
+            content: Text(defaultDistro),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _showInstallDialog() async {
+    _addLog('Loading available distros...');
+    try {
+      final available = await ApiService.getAvailableDistros();
+      _addLog('Loaded ${available.length} available distros');
+      
+      if (!mounted) return;
+
+      final selected = await showDialog<List<String>>(
+        context: context,
+        builder: (context) => _InstallDialog(available: available),
+      );
+
+      if (selected != null && selected.isNotEmpty) {
+        _installDistros(selected);
+      }
+    } catch (e) {
+      _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _installDistros(List<String> distros) async {
+    setState(() {
+      _isInstalling = true;
+      _currentlyInstalling = distros.join(', ');
+    });
+    
+    _addLog('Installing ${distros.length} distro(s): ${distros.join(", ")}');
+    try {
+      final results = await ApiService.installDistros(distros);
+      
+      for (var result in results) {
+        if (result['success'] as bool) {
+          _addLog('✓ ${result['distro']}: ${result['message']}');
+        } else {
+          _addLog('✗ ${result['distro']}: ${result['message']}');
+        }
+      }
+      
+      // Refresh the distro list
+      _loadDistros();
+    } catch (e) {
+      _addLog('✗ Error: $e');
+    } finally {
+      setState(() {
+        _isInstalling = false;
+        _currentlyInstalling = '';
+      });
     }
   }
 
@@ -94,10 +172,10 @@ class _MainScreenState extends State<MainScreen> {
                     _buildSectionHeader(context, 'WSL Actions'),
                     _buildButton('Refresh List', _loadDistros),
                     _buildButton('WSL Info', () => _addLog('WSL Info clicked')),
-                    _buildButton('WSL Default', () => _addLog('WSL Default clicked')),
+                    _buildButton('WSL Default', _showDefaultDistro),
                     const SizedBox(height: 16),
                     _buildSectionHeader(context, 'Distro Actions'),
-                    _buildButton('Install', () => _addLog('Install clicked')),
+                    _buildButton('Install', _showInstallDialog),
                     _buildButton('Rename', () => _addLog('Rename clicked')),
                     _buildButton('Backup', () => _addLog('Backup clicked')),
                   ],
@@ -229,16 +307,56 @@ class _MainScreenState extends State<MainScreen> {
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.all(8.0),
-                              itemCount: _logs.length,
+                              itemCount: _logs.length + (_isInstalling ? 1 : 0),
                               reverse: true,
                               itemBuilder: (context, index) {
+                                if (index == 0 && _isInstalling) {
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 2.0),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 12,
+                                          height: 12,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation<Color>(
+                                              Theme.of(context).colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            'Installing $_currentlyInstalling...',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  fontFamily: 'monospace',
+                                                  color: Theme.of(context).colorScheme.primary,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                
+                                final logIndex = _isInstalling ? index - 1 : index;
+                                final log = _logs[_logs.length - 1 - logIndex];
+                                Color? textColor = Theme.of(context).colorScheme.onSurfaceVariant;
+                                
+                                if (log.startsWith('✓')) {
+                                  textColor = Colors.green;
+                                } else if (log.startsWith('✗')) {
+                                  textColor = Colors.red;
+                                }
+                                
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 2.0),
                                   child: Text(
-                                    _logs[_logs.length - 1 - index],
+                                    log,
                                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                           fontFamily: 'monospace',
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                          color: textColor,
                                         ),
                                   ),
                                 );
@@ -278,6 +396,100 @@ class _MainScreenState extends State<MainScreen> {
           child: Text(label),
         ),
       ),
+    );
+  }
+}
+
+class _InstallDialog extends StatefulWidget {
+  final List<Map<String, String>> available;
+
+  const _InstallDialog({required this.available});
+
+  @override
+  State<_InstallDialog> createState() => _InstallDialogState();
+}
+
+class _InstallDialogState extends State<_InstallDialog> {
+  final Set<String> _selected = {};
+  String _searchQuery = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = widget.available.where((d) {
+      if (_searchQuery.isEmpty) return true;
+      final name = d['name']!.toLowerCase();
+      final friendly = d['friendlyName']!.toLowerCase();
+      final query = _searchQuery.toLowerCase();
+      return name.contains(query) || friendly.contains(query);
+    }).toList();
+
+    return AlertDialog(
+      title: const Text('Install WSL Distros'),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              decoration: const InputDecoration(
+                labelText: 'Search',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final distro = filtered[index];
+                  final name = distro['name']!;
+                  final friendlyName = distro['friendlyName']!;
+                  
+                  return CheckboxListTile(
+                    title: Text(friendlyName),
+                    subtitle: Text(name),
+                    value: _selected.contains(name),
+                    onChanged: (checked) {
+                      setState(() {
+                        if (checked == true) {
+                          _selected.add(name);
+                        } else {
+                          _selected.remove(name);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+            if (_selected.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text(
+                  '${_selected.length} distro(s) selected',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _selected.isEmpty
+              ? null
+              : () => Navigator.pop(context, _selected.toList()),
+          child: const Text('Install'),
+        ),
+      ],
     );
   }
 }
