@@ -31,13 +31,14 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   final List<String> _logs = [];
   final List<String> _distros = [];
+  String _defaultDistro = '';
   bool _isInstalling = false;
   String _currentlyInstalling = '';
 
   @override
   void initState() {
     super.initState();
-    // Load distros on startup
+    // Load distros and default on startup
     _loadDistros();
   }
 
@@ -51,11 +52,13 @@ class _MainScreenState extends State<MainScreen> {
     _addLog('Loading distros...');
     try {
       final distros = await ApiService.getDistros();
+      final defaultDistro = await ApiService.getDefaultDistro();
       setState(() {
         _distros.clear();
         _distros.addAll(distros);
+        _defaultDistro = defaultDistro;
       });
-      _addLog('Loaded ${distros.length} distro(s)');
+      _addLog('Loaded ${distros.length} distro(s), default: "$defaultDistro"');
     } catch (e) {
       _addLog('Error: $e');
     }
@@ -83,6 +86,49 @@ class _MainScreenState extends State<MainScreen> {
       }
     } catch (e) {
       _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _setDefaultDistro(String name) async {
+    _addLog('Setting $name as default...');
+    try {
+      await ApiService.setDefaultDistro(name);
+      _addLog('✓ Set $name as default');
+      _loadDistros();
+    } catch (e) {
+      _addLog('✗ Error: $e');
+    }
+  }
+
+  Future<void> _unregisterDistro(String name) async {
+    // Confirm deletion
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: Text('Are you sure you want to unregister $name?\n\nThis will remove the distro but not delete its files.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      _addLog('Unregistering $name...');
+      try {
+        await ApiService.unregisterDistro(name);
+        _addLog('✓ Unregistered $name');
+        _loadDistros();
+      } catch (e) {
+        _addLog('✗ Error: $e');
+      }
     }
   }
 
@@ -169,15 +215,13 @@ class _MainScreenState extends State<MainScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(8.0),
                   children: [
-                    _buildSectionHeader(context, 'WSL Actions'),
                     _buildButton('Refresh List', _loadDistros),
-                    _buildButton('WSL Info', () => _addLog('WSL Info clicked')),
-                    _buildButton('WSL Default', _showDefaultDistro),
+                    _buildButton('WSL Info', null),
                     const SizedBox(height: 16),
-                    _buildSectionHeader(context, 'Distro Actions'),
+                    _buildSectionHeader(context, 'Bulk Actions'),
                     _buildButton('Install', _showInstallDialog),
-                    _buildButton('Rename', () => _addLog('Rename clicked')),
-                    _buildButton('Backup', () => _addLog('Backup clicked')),
+                    _buildButton('Rename', null),
+                    _buildButton('Backup', null),
                   ],
                 ),
               ),
@@ -215,41 +259,122 @@ class _MainScreenState extends State<MainScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16.0),
-                        itemCount: _distros.length,
-                        itemBuilder: (context, index) {
-                          return Card(
+                    : Builder(
+                        builder: (context) {
+                          // Sort so default is first (case-insensitive comparison)
+                          final sortedDistros = List<String>.from(_distros);
+                          sortedDistros.sort((a, b) {
+                            if (a.toLowerCase() == _defaultDistro.toLowerCase()) return -1;
+                            if (b.toLowerCase() == _defaultDistro.toLowerCase()) return 1;
+                            return a.toLowerCase().compareTo(b.toLowerCase());
+                          });
+                          
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(16.0),
+                            itemCount: sortedDistros.length,
+                            itemBuilder: (context, index) {
+                              final distro = sortedDistros[index];
+                              final isDefault = distro.toLowerCase() == _defaultDistro.toLowerCase();
+                              
+                              return Card(
                             margin: const EdgeInsets.only(bottom: 8.0),
+                            elevation: isDefault ? 4 : 1,
+                            color: isDefault 
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : null,
                             child: ListTile(
                               leading: Icon(
                                 Icons.computer,
-                                color: Theme.of(context).colorScheme.primary,
+                                color: isDefault 
+                                    ? Theme.of(context).colorScheme.primary
+                                    : null,
+                                size: isDefault ? 28 : 24,
                               ),
-                              title: Text(_distros[index]),
-                              trailing: PopupMenuButton(
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'info',
-                                    child: Text('View Info'),
+                              title: Row(
+                                children: [
+                                  Text(
+                                    distro,
+                                    style: isDefault 
+                                        ? const TextStyle(fontWeight: FontWeight.bold)
+                                        : null,
                                   ),
-                                  const PopupMenuItem(
-                                    value: 'rename',
-                                    child: Text('Rename'),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'backup',
-                                    child: Text('Backup'),
-                                  ),
+                                  if (isDefault) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).colorScheme.primary,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'DEFAULT',
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              color: Theme.of(context).colorScheme.onPrimary,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                itemBuilder: (context) {
+                                  final items = <PopupMenuEntry<String>>[
+                                    const PopupMenuItem(
+                                      value: 'info',
+                                      child: Text('View Info'),
+                                    ),
+                                    if (!isDefault)
+                                      const PopupMenuItem(
+                                        value: 'set-default',
+                                        child: Text('Set as Default'),
+                                      ),
+                                    const PopupMenuItem(
+                                      value: 'rename',
+                                      child: Text('Rename'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'backup',
+                                      child: Text('Backup'),
+                                    ),
+                                    const PopupMenuDivider(),
+                                    const PopupMenuItem(
+                                      value: 'delete',
+                                      child: Text('Delete'),
+                                    ),
+                                  ];
+                                  return items;
+                                },
                                 onSelected: (value) {
-                                  _addLog('$value: ${_distros[index]}');
+                                  switch (value) {
+                                    case 'info':
+                                      _addLog('Info: $distro');
+                                      break;
+                                    case 'set-default':
+                                      _setDefaultDistro(distro);
+                                      break;
+                                    case 'rename':
+                                      _addLog('Rename: $distro');
+                                      break;
+                                    case 'backup':
+                                      _addLog('Backup: $distro');
+                                      break;
+                                    case 'delete':
+                                      _unregisterDistro(distro);
+                                      break;
+                                  }
                                 },
                               ),
                             ),
                           );
                         },
-                      ),
+                      );
+                    },
+                  ),
               ),
               // Log area at bottom
               Container(
@@ -386,7 +511,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildButton(String label, VoidCallback onPressed) {
+  Widget _buildButton(String label, VoidCallback? onPressed) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: SizedBox(
