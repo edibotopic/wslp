@@ -63,7 +63,7 @@ func (s *Server) handleGetDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defaultDistro, err := wsl.GetDefaultDistro(context.Background())
+	defaultDistro, err := wsl.GetDefaultDistro(context.Background(), wsl.RealDefaultGetter{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -174,7 +174,7 @@ func (s *Server) handleSetDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wsl.SetDefaultDistro(context.Background(), request.Name); err != nil {
+	if err := wsl.SetDefaultDistro(context.Background(), request.Name, wsl.RealDefaultSetter{}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
