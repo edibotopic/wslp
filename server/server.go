@@ -142,7 +142,7 @@ func (s *Server) handleUnregister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wsl.UnregisterDistro(context.Background(), request.Name); err != nil {
+	if err := wsl.UnregisterDistro(context.Background(), request.Name, wsl.RealUnregisterer{}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
