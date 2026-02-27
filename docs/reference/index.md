@@ -9,4 +9,5 @@ wslp_default_change
 wslp_default_show
 wslp_install
 wslp_list
+wslp_serve
 ```
