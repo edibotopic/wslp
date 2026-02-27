@@ -3,10 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
-	"github.com/ubuntu/gowsl"
+	"wslp/internal/wsl"
 )
 
 var defaultCmd = &cobra.Command{
@@ -15,19 +16,25 @@ var defaultCmd = &cobra.Command{
 	Long:  `Show the default Linux distro, set the default (TODO), and switch between WSL 1 and 2 (TODO).`,
 }
 
+func ShowDefault(ctx context.Context, g wsl.DefaultGetter, out io.Writer) error {
+	fmt.Fprintln(out, "The default WSL distro is:")
+
+	name, err := wsl.GetDefaultDistro(ctx, g)
+	if err != nil {
+		fmt.Fprintln(out, err)
+		return err
+	}
+
+	fmt.Fprintln(out, name)
+	return nil
+}
+
 var defaultShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show the default distro",
 	Long:  `Prints the defaults WSL distribution on the Windows host.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Fprintln(cmd.OutOrStdout(), "The default WSL distro is:")
-
-		defaultDistro, _, err := gowsl.DefaultDistro(context.Background())
-		if err != nil {
-			fmt.Fprintln(cmd.ErrOrStderr(), err)
-			return
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), defaultDistro.Name())
+		ShowDefault(context.Background(), wsl.RealDefaultGetter{}, cmd.OutOrStdout())
 	},
 }
 

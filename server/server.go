@@ -44,7 +44,7 @@ func (s *Server) handleListDistros(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	distros, err := wsl.ListDistros(context.Background())
+	distros, err := wsl.ListDistros(context.Background(), wsl.RealLister{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -63,7 +63,7 @@ func (s *Server) handleGetDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defaultDistro, err := wsl.GetDefaultDistro(context.Background())
+	defaultDistro, err := wsl.GetDefaultDistro(context.Background(), wsl.RealDefaultGetter{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -142,7 +142,7 @@ func (s *Server) handleUnregister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wsl.UnregisterDistro(context.Background(), request.Name); err != nil {
+	if err := wsl.UnregisterDistro(context.Background(), request.Name, wsl.RealUnregisterer{}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -174,7 +174,7 @@ func (s *Server) handleSetDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wsl.SetDefaultDistro(context.Background(), request.Name); err != nil {
+	if err := wsl.SetDefaultDistro(context.Background(), request.Name, wsl.RealDefaultSetter{}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

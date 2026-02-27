@@ -2,14 +2,25 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"strings"
 	"testing"
 )
 
-// TestListCommand tests the list command
+type mockLister struct {
+	names      []string
+	shouldFail bool
+}
+
+func (m *mockLister) List(ctx context.Context) ([]string, error) {
+	if m.shouldFail {
+		return nil, errors.New("mock error")
+	}
+	return m.names, nil
+}
+
 func TestListCommand(t *testing.T) {
-	// Test 1: Check the command exists and has correct metadata
-	// This test works on any OS since it only checks command structure
 	t.Run("command metadata", func(t *testing.T) {
 		if RootCmd == nil {
 			t.Fatal("RootCmd is nil")
@@ -33,37 +44,44 @@ func TestListCommand(t *testing.T) {
 		}
 	})
 
-	// Test 2: Execute the command and verify output
-	// This test requires Windows and is skipped on Linux/Mac
-	t.Run("command output", func(t *testing.T) {
-		skipIfNotWindows(t)
+	t.Run("prints distros and count", func(t *testing.T) {
+		mock := &mockLister{names: []string{"Ubuntu", "Debian"}}
+		out := new(bytes.Buffer)
 
-		buf := new(bytes.Buffer)
-		
-		// Create a fresh command instance for this test
-		cmd := RootCmd
-		cmd.SetOut(buf)
-		cmd.SetErr(buf)
-		cmd.SetArgs([]string{"list"})
-		defer cmd.SetArgs([]string{}) // Reset after test
-
-		err := cmd.Execute()
+		err := ListDistros(context.Background(), mock, out)
 		if err != nil {
-			t.Fatalf("command failed: %v", err)
+			t.Fatalf("unexpected error: %v", err)
 		}
 
-		output := buf.String()
-
-		// Check for expected output patterns
-		expectedPhrases := []string{
-			"Finding registered distros",
-			"distros are registered",
-		}
-
-		for _, phrase := range expectedPhrases {
+		output := out.String()
+		for _, phrase := range []string{"Finding registered distros", "2 distros are registered", "Ubuntu", "Debian"} {
 			if !strings.Contains(output, phrase) {
-				t.Errorf("expected output to contain '%s', got:\n%s", phrase, output)
+				t.Errorf("expected output to contain %q, got:\n%s", phrase, output)
 			}
+		}
+	})
+
+	t.Run("prints zero count when no distros", func(t *testing.T) {
+		mock := &mockLister{names: []string{}}
+		out := new(bytes.Buffer)
+
+		err := ListDistros(context.Background(), mock, out)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if !strings.Contains(out.String(), "0 distros are registered") {
+			t.Errorf("expected output to mention 0 distros, got:\n%s", out.String())
+		}
+	})
+
+	t.Run("returns error from lister", func(t *testing.T) {
+		mock := &mockLister{shouldFail: true}
+		out := new(bytes.Buffer)
+
+		err := ListDistros(context.Background(), mock, out)
+		if err == nil {
+			t.Fatal("expected error, got nil")
 		}
 	})
 }
