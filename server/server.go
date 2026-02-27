@@ -44,7 +44,7 @@ func (s *Server) handleListDistros(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	distros, err := wsl.ListDistros(context.Background())
+	distros, err := wsl.ListDistros(context.Background(), wsl.RealLister{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
