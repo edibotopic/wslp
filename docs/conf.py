@@ -110,7 +110,7 @@ html_context = {
     # Product tag image; the orange part of your logo, shown in the page header
     #
     # TODO: To add a tag image, uncomment and update as needed.
-    'product_tag': '_static/tag.png',
+    'product_tag': '_static/wslp-tag.png',
     # Your Discourse instance URL
     #
     # TODO: Change to your Discourse instance URL or leave empty.
@@ -149,8 +149,7 @@ html_context = {
     # TODO: To enable listing contributors on individual pages, set to True
     "display_contributors": False,
 
-    # Required for feedback button    
-    'github_issues': 'disabled',
+    "github_issues": "",
 }
 
 html_extra_path = []
@@ -210,7 +209,7 @@ sitemap_excludes = [
 #######################
 
 html_static_path = [".sphinx/_static"]
-#templates_path = ["_templates"]
+templates_path = [".sphinx/_templates"]
 
 
 #############
@@ -304,12 +303,12 @@ exclude_patterns = [
 
 # Adds custom CSS files, located under 'html_static_path'
 
-# html_css_files = []
+html_css_files = []
 
 
 # Adds custom JavaScript files, located under 'html_static_path'
 
-# html_js_files = []
+html_js_files = []
 
 
 # Specifies a reST snippet to be appended to each .rst file
