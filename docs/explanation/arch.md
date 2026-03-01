@@ -37,7 +37,7 @@ User → Flutter GUI → HTTP API (localhost:8080) → Core Logic → gowsl | ws
 - Real-time activity logging and progress tracking
 - Independent of CLI - only requires server to be running
 
-## Diagram
+### Diagram
 
 ```{image} ../assets/arch-dark.svg
 :alt: architecure diagram
