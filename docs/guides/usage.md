@@ -2,6 +2,21 @@
 
 WSL Plus provides two interfaces for managing WSL distributions: a command-line interface (CLI) and a graphical user interface (GUI).
 
+## Quickstart
+
+First build the CLI and the GUI with `build.bat`:
+
+- **For CLI**: Use `wslp.exe` directly
+
+  ```bash
+  wslp.exe list
+  wslp.exe backup Ubuntu
+  ```
+
+- **For GUI**: Run `rungui.bat`
+
+This automatically starts the backend server and launches the GUI.
+
 ## CLI Usage
 
 The CLI provides direct command-line access to WSL management functions.
