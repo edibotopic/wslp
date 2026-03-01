@@ -9,7 +9,9 @@ import (
 
 // DistroInfo represents basic information about a WSL distro
 type DistroInfo struct {
-	Name string `json:"name"`
+	Name    string `json:"name"`
+	State   string `json:"state"`
+	Running bool   `json:"running"`
 }
 
 // Lister retrieves the names of registered WSL distributions
@@ -34,7 +36,7 @@ func (r RealLister) List(ctx context.Context) ([]string, error) {
 	return names, nil
 }
 
-// ListDistros retrieves all registered WSL distributions
+// ListDistros retrieves all registered WSL distributions with their state
 func ListDistros(ctx context.Context, l Lister) ([]DistroInfo, error) {
 	names, err := l.List(ctx)
 	if err != nil {
@@ -43,7 +45,21 @@ func ListDistros(ctx context.Context, l Lister) ([]DistroInfo, error) {
 
 	result := make([]DistroInfo, len(names))
 	for i, name := range names {
-		result[i] = DistroInfo{Name: name}
+		distro := gowsl.NewDistro(ctx, name)
+		state, err := distro.State()
+
+		stateStr := "Unknown"
+		running := false
+		if err == nil {
+			stateStr = state.String()
+			running = (state != gowsl.Stopped)
+		}
+
+		result[i] = DistroInfo{
+			Name:    name,
+			State:   stateStr,
+			Running: running,
+		}
 	}
 
 	return result, nil
