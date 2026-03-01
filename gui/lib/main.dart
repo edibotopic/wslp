@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:yaru/yaru.dart';
 import 'services/api_service.dart';
 
 void main() {
@@ -12,13 +13,16 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      theme: ThemeData(
-        colorSchemeSeed: const Color.fromRGBO(200, 200, 200, 1.0),
-      ),
-      darkTheme: ThemeData(brightness: Brightness.dark),
-      title: 'WSL Plus',
-      home: const Scaffold(body: MainScreen()),
+    return YaruTheme(
+      builder: (context, yaru, child) {
+        return MaterialApp(
+          theme: yaru.theme,
+          darkTheme: yaru.darkTheme,
+          debugShowCheckedModeBanner: false,
+          title: 'WSL Plus',
+          home: const Scaffold(body: MainScreen()),
+        );
+      },
     );
   }
 }
@@ -605,10 +609,9 @@ class _MainScreenState extends State<MainScreen> {
         Container(
           width: 200,
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
             border: Border(
               right: BorderSide(
-                color: Theme.of(context).colorScheme.outline,
+                color: Theme.of(context).colorScheme.outlineVariant,
                 width: 1,
               ),
             ),
@@ -844,10 +847,9 @@ class _MainScreenState extends State<MainScreen> {
               Container(
                 height: 150,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   border: Border(
                     top: BorderSide(
-                      color: Theme.of(context).colorScheme.outline,
+                      color: Theme.of(context).colorScheme.outlineVariant,
                       width: 1,
                     ),
                   ),
