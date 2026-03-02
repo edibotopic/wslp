@@ -13,7 +13,7 @@ import (
 var defaultCmd = &cobra.Command{
 	Use:   "default",
 	Short: "Manage the default WSL distro",
-	Long:  `Show the default Linux distro, set the default (TODO), and switch between WSL 1 and 2 (TODO).`,
+	Long:  `Show the default Linux distro.`,
 }
 
 func ShowDefault(ctx context.Context, g wsl.DefaultGetter, out io.Writer) error {
