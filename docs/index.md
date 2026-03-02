@@ -14,6 +14,28 @@ Offers extended functionality compared to `wsl.exe`, including:
 
 Built using Go and Flutter.
 
+## Screenshots
+
+### GUI
+
+```{image} ../img/gui-wslp-dark.png
+:align: center
+:class: only-dark
+```
+
+```{image} ../img/gui-wslp-light.png
+:align: center
+:class: only-light
+```
+
+### CLI
+
+```{image} ../img/cli-screenshot.png
+:align: center
+```
+
+---
+
 ```{toctree}
 :hidden:
 :maxdepth: 2
