@@ -3,5 +3,6 @@
 ```{toctree}
 :titlesonly:
 
+why
 arch
 ```

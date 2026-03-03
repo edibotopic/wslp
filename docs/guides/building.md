@@ -12,6 +12,25 @@ This guide covers building both the CLI and GUI components.
 - **Flutter** 3.0 or later
 - **Windows** 11
 
+## Quickstart
+
+For the fastest setup, use the provided batch files:
+
+```bash
+git clone https://github.com/edibotopic/wslp
+cd wslp
+./build.bat
+```
+
+This builds both the CLI and GUI in one step.
+
+After building:
+
+- **CLI usage**: Run `wslp.exe` commands
+- **GUI usage**: Run `rungui.bat`
+
+Running `rungui.bat` automatically starts the server also.
+
 ## Building the CLI
 
 The CLI is a Go application using Cobra for command-line interface.
