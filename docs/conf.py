@@ -110,7 +110,7 @@ html_context = {
     # Product tag image; the orange part of your logo, shown in the page header
     #
     # TODO: To add a tag image, uncomment and update as needed.
-    'product_tag': '_static/wslp-tag.png',
+    # 'product_tag': '_static/wslp-tag.png',
     # Your Discourse instance URL
     #
     # TODO: Change to your Discourse instance URL or leave empty.
