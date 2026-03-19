@@ -4,7 +4,7 @@ Manage the default WSL distro
 
 ### Synopsis
 
-Show the default Linux distro, set the default (TODO), and switch between WSL 1 and 2 (TODO).
+Show the default Linux distro.
 
 ### Options
 
