@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	gowsl "github.com/ubuntu/gowsl"
@@ -41,7 +42,7 @@ func (r RealBackuper) IsRegistered(ctx context.Context, name string) (bool, erro
 		return false, err
 	}
 	for _, d := range distros {
-		if d.Name() == name {
+		if strings.EqualFold(d.Name(), name) {
 			return true, nil
 		}
 	}

@@ -3,6 +3,7 @@ package wsl
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	gowsl "github.com/ubuntu/gowsl"
 )
@@ -29,10 +30,10 @@ func (r RealTerminator) IsRegistered(ctx context.Context, name string) (bool, er
 	if err != nil {
 		return false, err
 	}
-	// NOTE: Exact match comparison. Distros with matching names but different
+	// NOTE: Distros with matching names but different
 	// casings (e.g., "Ubuntu" and "ubuntu") is atypical but possible.
 	for _, d := range distros {
-		if d.Name() == name {
+		if strings.EqualFold(d.Name(), name) {
 			return true, nil
 		}
 	}
