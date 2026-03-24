@@ -34,6 +34,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/terminate", s.handleTerminate)
 	mux.HandleFunc("/api/launch", s.handleLaunch)
 	mux.HandleFunc("/api/rename", s.handleRename)
+	mux.HandleFunc("/api/copy", s.handleCopy)
 	mux.HandleFunc("/api/wsl-info", s.handleWSLInfo)
 	mux.HandleFunc("/api/distro-info", s.handleDistroInfo)
 
@@ -369,6 +370,35 @@ func (s *Server) handleDistroInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
+}
+
+func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Source     string `json:"source"`
+		NewName    string `json:"newName"`
+		InstallDir string `json:"installDir,omitempty"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.Source == "" || request.NewName == "" {
+		http.Error(w, "Both source and newName are required", http.StatusBadRequest)
+		return
+	}
+
+	copier := wsl.RealCopier{}
+	result := wsl.CopyDistro(context.Background(), copier, request.Source, request.NewName, request.InstallDir)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 func corsMiddleware(next http.Handler) http.Handler {
