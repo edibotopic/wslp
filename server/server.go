@@ -35,6 +35,7 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/launch", s.handleLaunch)
 	mux.HandleFunc("/api/rename", s.handleRename)
 	mux.HandleFunc("/api/copy", s.handleCopy)
+	mux.HandleFunc("/api/ubuntu-telemetry", s.handleUbuntuTelemetry)
 	mux.HandleFunc("/api/wsl-info", s.handleWSLInfo)
 	mux.HandleFunc("/api/distro-info", s.handleDistroInfo)
 
@@ -399,6 +400,37 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+func (s *Server) handleUbuntuTelemetry(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	switch r.Method {
+	case http.MethodGet:
+		enabled := wsl.GetUbuntuTelemetryStatus()
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"enabled": enabled,
+		})
+
+	case http.MethodPost:
+		var request struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+		if err := wsl.SetUbuntuTelemetryStatus(request.Enabled); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"enabled": request.Enabled,
+		})
+
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func corsMiddleware(next http.Handler) http.Handler {

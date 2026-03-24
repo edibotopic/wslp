@@ -203,4 +203,30 @@ class ApiService {
       throw Exception('Failed to get distro info');
     }
   }
+
+  static Future<bool> getUbuntuTelemetry() async {
+    final response = await http.get(Uri.parse('$baseUrl/api/ubuntu-telemetry'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['enabled'] as bool;
+    } else {
+      throw Exception('Failed to get Ubuntu telemetry status');
+    }
+  }
+
+  static Future<bool> setUbuntuTelemetry(bool enabled) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/ubuntu-telemetry'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({'enabled': enabled}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      return data['enabled'] as bool;
+    } else {
+      throw Exception('Failed to set Ubuntu telemetry status');
+    }
+  }
 }

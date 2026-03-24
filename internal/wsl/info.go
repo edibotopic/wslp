@@ -28,10 +28,9 @@ type DistroDetailInfo struct {
 	InteropEnabled   bool              `json:"interopEnabled"`
 	DriveMounting    bool              `json:"driveMounting"`
 	PathAppended     bool              `json:"pathAppended"`
-	Flavor           string            `json:"flavor"`                     // e.g., "ubuntu", "debian"
-	IsUbuntu         bool              `json:"isUbuntu"`
-	TelemetryEnabled *bool             `json:"telemetryEnabled,omitempty"` // Only for Ubuntu
-	EnvironmentVars  map[string]string `json:"environmentVars"`
+	Flavor          string            `json:"flavor"` // e.g., "ubuntu", "debian"
+	IsUbuntu        bool              `json:"isUbuntu"`
+	EnvironmentVars map[string]string `json:"environmentVars"`
 }
 
 // GetWSLSystemInfo retrieves system-wide WSL information
@@ -111,12 +110,7 @@ func GetDistroDetailInfo(ctx context.Context, name string) (DistroDetailInfo, er
 			info.Flavor = flavor
 			info.IsUbuntu = strings.EqualFold(flavor, "ubuntu")
 
-			// If Ubuntu, check telemetry status
-			if info.IsUbuntu {
-				telemetry := getUbuntuTelemetryStatus()
-				info.TelemetryEnabled = &telemetry
 			}
-		}
 	}
 
 	// Get configuration
@@ -162,20 +156,3 @@ func getDistroFlavor(guid string) (string, error) {
 	return flavor, nil
 }
 
-// getUbuntuTelemetryStatus checks the Ubuntu telemetry consent registry key
-func getUbuntuTelemetryStatus() bool {
-	// HKEY_CURRENT_USER\Software\Canonical\Ubuntu\UbuntuInsightsConsent
-	key, err := registry.OpenKey(registry.CURRENT_USER, `Software\Canonical\Ubuntu`, registry.QUERY_VALUE)
-	if err != nil {
-		// Key doesn't exist, assume consent not given
-		return false
-	}
-	defer key.Close()
-
-	consent, _, err := key.GetIntegerValue("UbuntuInsightsConsent")
-	if err != nil {
-		return false
-	}
-
-	return consent == 1
-}
