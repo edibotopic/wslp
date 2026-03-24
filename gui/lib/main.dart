@@ -697,6 +697,9 @@ class _MainScreenState extends State<MainScreen> {
                               final distro = distroData['name'] as String;
                               final isRunning = distroData['running'] as bool;
                               final isDefault = distro.toLowerCase() == _defaultDistro.toLowerCase();
+                              final distroState = (distroData['state'] as String? ?? '').toLowerCase();
+                              final isInstalling = distroState == 'installing';
+                              final isUninstalling = distroState == 'uninstalling';
                               
                               return Card(
                             margin: const EdgeInsets.only(bottom: 8.0),
@@ -766,6 +769,48 @@ class _MainScreenState extends State<MainScreen> {
                                                 ),
                                           ),
                                         ],
+                                      ),
+                                    ),
+                                  ],
+                                  if (isInstalling) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'INSTALLING',
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (isUninstalling) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'UNINSTALLING',
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                            ),
                                       ),
                                     ),
                                   ],
