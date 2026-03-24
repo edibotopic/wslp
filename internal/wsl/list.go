@@ -52,7 +52,7 @@ func ListDistros(ctx context.Context, l Lister) ([]DistroInfo, error) {
 		running := false
 		if err == nil {
 			stateStr = state.String()
-			running = (state != gowsl.Stopped)
+			running = (state == gowsl.Running)
 		}
 
 		result[i] = DistroInfo{
