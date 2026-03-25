@@ -13,7 +13,8 @@ wslp install [flags]
 ### Options
 
 ```
-  -h, --help   help for install
+      --experimental-concurrent   experimental: install distros concurrently
+  -h, --help                      help for install
 ```
 
 ### SEE ALSO

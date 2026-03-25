@@ -15,6 +15,7 @@ Create, delete, and rename instances. Perform bulk actions on multiple instances
 ### SEE ALSO
 
 * [wslp backup](wslp_backup.md)	 - Backup one or more WSL distributions
+* [wslp copy](wslp_copy.md)	 - Copy a WSL distribution under a new name
 * [wslp default](wslp_default.md)	 - Manage the default WSL distro
 * [wslp install](wslp_install.md)	 - Install WSL distros
 * [wslp launch](wslp_launch.md)	 - Launch an interactive shell for a WSL distribution
