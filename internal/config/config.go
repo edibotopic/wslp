@@ -36,6 +36,12 @@ func Init() {
 // SetDefaults sets default configuration values
 func SetDefaults() {
 	viper.SetDefault("backup_dir", DefaultBackupDir())
+	viper.SetDefault("max_concurrent_installs", 3)
+}
+
+// GetMaxConcurrentInstalls returns the max number of concurrent distro installs
+func GetMaxConcurrentInstalls() int {
+	return viper.GetInt("max_concurrent_installs")
 }
 
 // DefaultBackupDir returns the default backup directory path

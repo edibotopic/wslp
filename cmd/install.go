@@ -7,55 +7,20 @@ import (
 
 	"github.com/spf13/cobra"
 
-	gowsl "github.com/ubuntu/gowsl"
+	"wslp/internal/config"
+	"wslp/internal/wsl"
 )
 
-// Installer interface for mocking the install operation
-// We don't want to actually install something during tests
-type Installer interface {
-	Install(ctx context.Context, distro string) error
-}
-
-// RealInstaller uses the actual gowsl library
-type RealInstaller struct{}
-
-func (r RealInstaller) Install(ctx context.Context, distro string) error {
-	return gowsl.Install(ctx, distro)
-}
-
-// Default installer (real implementation)
-var currentInstaller Installer = RealInstaller{}
-
 // InstallDistros has the core logic for installing distros
-func InstallDistros(ctx context.Context, installer Installer, out io.Writer, distros []string) error {
-	if len(distros) == 0 {
-		fmt.Fprintln(out, "Error: No distros specified")
-		return nil
-	}
+func InstallDistros(ctx context.Context, out io.Writer, distros []string) {
+	results := wsl.InstallDistros(ctx, distros, false)
+	wsl.PrintInstallResults(out, results)
+}
 
-	// TODO: try to install distros concurrently
-	for _, distro := range distros {
-		fmt.Fprintf(out, "Installing %s...\n", distro)
-		if err := installer.Install(ctx, distro); err != nil {
-			fmt.Fprintf(out, "Error installing %s: %v\n", distro, err)
-			continue
-		}
-		fmt.Fprintf(out, "Successfully installed %s\n", distro)
-
-		d := gowsl.NewDistro(ctx, distro)
-		registered, err := d.IsRegistered()
-		if err != nil {
-			fmt.Fprintf(out, "Error checking registration: %v\n", err)
-		} else if registered {
-			fmt.Fprintf(out, "%s was downloaded in the modern format and is already registered\n", distro)
-			fmt.Fprintf(out, "Launch with wsl -d %s\n", distro)
-		} else {
-			fmt.Fprintf(out, "%s was downloaded in the classic format and must be registered\n", distro)
-			fmt.Fprintf(out, "Register with wsl --register %s\n", distro)
-		}
-	}
-
-	return nil
+// InstallDistrosConcurrent installs distros concurrently using a semaphore
+func InstallDistrosConcurrent(ctx context.Context, out io.Writer, distros []string) {
+	results := wsl.InstallDistros(ctx, distros, true)
+	wsl.PrintInstallResults(out, results)
 }
 
 // installCmd represents the install command
@@ -64,10 +29,21 @@ var installCmd = &cobra.Command{
 	Short: "Install WSL distros",
 	Long:  `Install one or more WSL distros`,
 	Run: func(cmd *cobra.Command, args []string) {
-		InstallDistros(context.Background(), currentInstaller, cmd.OutOrStdout(), args)
+		if len(args) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "Error: No distros specified")
+			return
+		}
+		concurrent, _ := cmd.Flags().GetBool("experimental-concurrent")
+		if concurrent {
+			fmt.Fprintf(cmd.OutOrStdout(), "experimental: installing distros concurrently (max %d at a time)\n", config.GetMaxConcurrentInstalls())
+			InstallDistrosConcurrent(context.Background(), cmd.OutOrStdout(), args)
+		} else {
+			InstallDistros(context.Background(), cmd.OutOrStdout(), args)
+		}
 	},
 }
 
 func init() {
+	installCmd.Flags().Bool("experimental-concurrent", false, "experimental: install distros concurrently")
 	RootCmd.AddCommand(installCmd)
 }

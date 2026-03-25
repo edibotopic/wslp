@@ -123,7 +123,7 @@ func (s *Server) handleInstall(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results := wsl.InstallDistros(context.Background(), request.Distros)
+	results := wsl.InstallDistros(context.Background(), request.Distros, false)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
