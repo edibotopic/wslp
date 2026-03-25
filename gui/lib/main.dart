@@ -41,12 +41,14 @@ class _MainScreenState extends State<MainScreen> {
   bool _isInstalling = false;
   String _currentlyInstalling = '';
   Timer? _refreshTimer;
+  bool _ubuntuTelemetry = false;
 
   @override
   void initState() {
     super.initState();
     // Load distros and default on startup
     _loadDistros();
+    _loadUbuntuTelemetry();
 
     // Set up periodic refresh every 5 seconds
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -80,6 +82,54 @@ class _MainScreenState extends State<MainScreen> {
       _addLog('Loaded ${distros.length} distro(s), $runningCount running, default: "$defaultDistro"');
     } catch (e) {
       _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _loadUbuntuTelemetry() async {
+    try {
+      final enabled = await ApiService.getUbuntuTelemetry();
+      setState(() {
+        _ubuntuTelemetry = enabled;
+      });
+    } catch (e) {
+      // Registry key may not exist on non-Ubuntu systems — silently ignore
+    }
+  }
+
+  Future<void> _toggleUbuntuTelemetry() async {
+    final newValue = !_ubuntuTelemetry;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Ubuntu Analytics'),
+        content: Text(
+          newValue
+              ? 'Enable Ubuntu analytics collection?\n\nNote: this will only affect new Ubuntu instances created after this change.'
+              : 'Disable Ubuntu analytics collection?\n\nNote: this will only affect new Ubuntu instances created after this change.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(newValue ? 'Enable' : 'Disable'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final result = await ApiService.setUbuntuTelemetry(newValue);
+        setState(() {
+          _ubuntuTelemetry = result;
+        });
+        _addLog('Ubuntu analytics ${result ? 'enabled' : 'disabled'}');
+      } catch (e) {
+        _addLog('✗ Error setting Ubuntu analytics: $e');
+      }
     }
   }
 
@@ -423,13 +473,6 @@ class _MainScreenState extends State<MainScreen> {
                   _buildInfoRow('Interop Enabled', info['interopEnabled'] ? 'Yes' : 'No'),
                   _buildInfoRow('Drive Mounting', info['driveMounting'] ? 'Yes' : 'No'),
                   _buildInfoRow('Path Appended', info['pathAppended'] ? 'Yes' : 'No'),
-                  if (info['isUbuntu'] == true) ...[
-                    const Divider(),
-                    _buildInfoRow(
-                      'Ubuntu Telemetry',
-                      info['telemetryEnabled'] == true ? 'Enabled' : 'Disabled',
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -640,6 +683,9 @@ class _MainScreenState extends State<MainScreen> {
                     _buildButton('Install', _showInstallDialog),
                     _buildButton('Backup', _showBackupDialog),
                     _buildButton('Delete', _showDeleteDialog),
+                    const SizedBox(height: 16),
+                    _buildSectionHeader(context, 'Ubuntu'),
+                    _buildTelemetryToggle(context),
                   ],
                 ),
               ),
@@ -1030,6 +1076,41 @@ class _MainScreenState extends State<MainScreen> {
         child: FilledButton.tonal(
           onPressed: onPressed,
           child: Text(label),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTelemetryToggle(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonal(
+          onPressed: _toggleUbuntuTelemetry,
+          style: FilledButton.styleFrom(
+            backgroundColor: _ubuntuTelemetry
+                ? Colors.green.withValues(alpha: 0.15)
+                : Colors.red.withValues(alpha: 0.15),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.circle,
+                size: 8,
+                color: _ubuntuTelemetry ? Colors.green : Colors.red,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Analytics ${_ubuntuTelemetry ? 'On' : 'Off'}',
+                style: TextStyle(
+                  color: _ubuntuTelemetry ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
