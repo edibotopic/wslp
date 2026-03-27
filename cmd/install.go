@@ -25,7 +25,7 @@ func InstallDistrosConcurrent(ctx context.Context, out io.Writer, distros []stri
 
 // installCmd represents the install command
 var installCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "install <distro> [distro...]",
 	Short: "Install WSL distros",
 	Long:  `Install one or more WSL distros`,
 	Run: func(cmd *cobra.Command, args []string) {

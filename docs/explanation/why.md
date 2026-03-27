@@ -4,6 +4,8 @@ Examples of why wslp is useful.
 
 ### Streamlined actions
 
+#### Renaming
+
 Renaming a distro requires editing the Windows Registry directly when using `wsl.exe`.
 
 ::::{grid} 2
@@ -22,6 +24,25 @@ Renaming a distro requires editing the Windows Registry directly when using `wsl
 :::
 
 ::::
+
+#### Copying
+
+Copying normally requires at least two steps: exporting and importing:
+
+::::{grid} 2
+
+:::{grid-item-card} Without wslp
+1. mkdir backup
+2. `wsl --export Ubuntu-24.04 .\backup\Ubuntu-24.04.tar.gz`
+3. `wsl --import Ubuntu-24.04-copy .\backup\Ubuntu2404-copy\ .\backup\Ubuntu-24.04.tar.gz`
+:::
+
+:::{grid-item-card} With wslp
+1. Run `wslp copy Ubuntu-24.04 Ubuntu-24.04-copy`
+:::
+
+::::
+
 
 ### Bulk actions
 
@@ -42,6 +63,10 @@ Installing multiple distros with `wsl.exe` requires a separate command per distr
 :::
 
 ::::
+
+```{note}
+With [concurrent installations](./concurrent-installs), you can also reduce the time for installation.
+```
 
 Backing up multiple distros with `wsl.exe` also requires a separate command per distro.
 

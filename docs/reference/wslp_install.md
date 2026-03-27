@@ -7,7 +7,7 @@ Install WSL distros
 Install one or more WSL distros
 
 ```
-wslp install [flags]
+wslp install <distro> [distro...] [flags]
 ```
 
 ### Options

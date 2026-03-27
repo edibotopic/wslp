@@ -4,7 +4,7 @@ Show the default distro
 
 ### Synopsis
 
-Prints the defaults WSL distribution on the Windows host.
+Prints the default WSL distribution on the Windows host.
 
 ```
 wslp default show [flags]
