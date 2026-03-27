@@ -5,6 +5,7 @@
 
 wslp
 wslp_backup
+wslp_copy
 wslp_default
 wslp_default_change
 wslp_default_show
