@@ -11,20 +11,43 @@ Personal project to make a management tool for WSL.
 
 WSL Plus provides two interfaces for managing WSL distributions: a command-line interface (CLI) and a graphical user interface (GUI).
 
+You must build it from source to use it.
+
+## Prerequisites
+
+- [Go](https://go.dev/dl/) — required to build the CLI
+- [Flutter](https://docs.flutter.dev/install) — required to build the GUI
+
+With `go` and `flutter` installed and on your PATH, you can then build
+the CLI and the tool using the batch scripts in the repo.
+
 ## Quickstart
 
-First build the CLI and the GUI with `build.bat`:
+First build the CLI and the GUI with `build.bat`.
+
+Then, still within root of the repo, the
+followin steps will enable usage of the CLI and GUI.
 
 - **For CLI**: Use `wslp.exe` directly
 
   ```bash
-  wslp.exe list
-  wslp.exe backup Ubuntu
+  .\wslp.exe list
+  .\wslp.exe backup Ubuntu
   ```
 
 - **For GUI**: Run `rungui.bat`
 
-This automatically starts the backend server and launches the GUI.
+This last command automatically starts the backend server and launches the GUI.
+
+### Installing the CLI tool to your path
+
+From within the repo's root, run:
+
+```bash
+go install .
+```
+
+Now you can call `wslp` directly from anywhere.
 
 ## CLI Usage
 
@@ -57,7 +80,7 @@ Examples:
 wslp install Ubuntu
 
 # Install multiple distributions
-wslp install Ubuntu Debian archos
+wslp install Ubuntu Debian archlinux
 ```
 
 There is also a server that is used as the backend for the GUI.
@@ -100,3 +123,4 @@ Click **Clear Log** to reset the activity log.
 - Use concurrency for more things
 - Better feature parity between GUI and CLI
 - Implement stub commands
+- Easier setup and install for users
