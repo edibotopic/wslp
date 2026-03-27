@@ -98,3 +98,5 @@ Click **Clear Log** to reset the activity log.
 - More distro-specific actions
 - Test the limits of concurrent installs
 - Use concurrency for more things
+- Better feature parity between GUI and CLI
+- Implement stub commands
