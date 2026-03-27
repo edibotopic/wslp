@@ -91,11 +91,10 @@ The activity log at the bottom of the screen shows:
 
 Click **Clear Log** to reset the activity log.
 
-## Bugs
+## Future work
 
-- Instance status updates can go a bit haywire!
-
-## Todo
-
-- Fix existing tests and add more
-- Break up Flutter code
+- Add tests so the coverage isn't so low
+- Refactor Dart code so it isn't one file
+- More distro-specific actions
+- Test the limits of concurrent installs
+- Use concurrency for more things
