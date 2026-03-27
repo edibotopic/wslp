@@ -2,9 +2,9 @@
 
 WSL Plus provides two interfaces for managing WSL distributions: a command-line interface (CLI) and a graphical user interface (GUI).
 
-You must build it from source to use it.
+It is recommended that you build it from source to test it, although downloads are provided as release artifacts on GitHub if you have difficulty with building.
 
-## Prerequisites
+### Prerequisites for building
 
 - [Go](https://go.dev/dl/) — required to build the CLI
 - [Flutter](https://docs.flutter.dev/install) — required to build the GUI
@@ -12,12 +12,12 @@ You must build it from source to use it.
 With `go` and `flutter` installed and on your PATH, you can then build
 the CLI and the tool using the batch scripts in the repo.
 
-## Quickstart
+### Quickstart
 
-First build the CLI and the GUI with `build.bat`.
+After cloning the repo, build the CLI and the GUI with `build.bat`.
 
 Then, still within root of the repo, the
-followin steps will enable usage of the CLI and GUI.
+followinG steps will enable usage of the CLI and GUI.
 
 - **For CLI**: Use `wslp.exe` directly
 
@@ -30,7 +30,7 @@ followin steps will enable usage of the CLI and GUI.
 
 This last command automatically starts the backend server and launches the GUI.
 
-### Installing the CLI tool to your path
+#### Installing the CLI tool to your path
 
 From within the repo's root, run:
 
@@ -39,13 +39,6 @@ go install .
 ```
 
 Now you can call `wslp` directly from anywhere.
-
-```{note}
-These docs generally assume that `wslp` is available on your PATH.
-
-If you are building locally for testing purposes, you will need to
-use, for example, `.\wslp.exe` from within the repo's root.
-```
 
 ## CLI Usage
 
@@ -111,3 +104,4 @@ The activity log at the bottom of the screen shows:
 - Installation progress
 
 Click **Clear Log** to reset the activity log.
+
