@@ -11,7 +11,7 @@ Personal project to make a management tool for WSL.
 
 WSL Plus provides two interfaces for managing WSL distributions: a command-line interface (CLI) and a graphical user interface (GUI).
 
-It is recommended that you build it from source to test it, although downloads are provided in the releases if you have difficulty with building.
+It is recommended that you build it from source to test it, although [downloadable releases](https://github.com/edibotopic/wslp/releases/tag/v0.1) are provided if you have difficulty with building.
 
 ## Prerequisites for building
 
