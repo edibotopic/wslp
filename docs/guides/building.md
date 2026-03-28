@@ -6,6 +6,11 @@ It is currently not available as a packaged release.
 
 This guide covers building both the CLI and GUI components.
 
+```{tip}
+If you don't want to build the app, release artifacts are provided
+in the GitHub releases provided in the repo.
+```
+
 ## Prerequisites
 
 - **Go** 1.20 or later
