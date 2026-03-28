@@ -13,7 +13,7 @@ WSL Plus provides two interfaces for managing WSL distributions: a command-line 
 
 It is recommended that you build it from source to test it, although [downloadable releases](https://github.com/edibotopic/wslp/releases/tag/v0.1) are provided if you have difficulty with building.
 
-## Prerequisites for building
+### Prerequisites for building
 
 - [Go](https://go.dev/dl/) — required to build the CLI
 - [Flutter](https://docs.flutter.dev/install) — required to build the GUI
@@ -21,12 +21,12 @@ It is recommended that you build it from source to test it, although [downloadab
 With `go` and `flutter` installed and on your PATH, you can then build
 the CLI and the tool using the batch scripts in the repo.
 
-## Quickstart
+### Quickstart
 
 After cloning the repo, build the CLI and the GUI with `build.bat`.
 
 Then, still within root of the repo, the
-followinG steps will enable usage of the CLI and GUI.
+following steps will enable usage of the CLI and GUI.
 
 - **For CLI**: Use `wslp.exe` directly
 
@@ -39,7 +39,7 @@ followinG steps will enable usage of the CLI and GUI.
 
 This last command automatically starts the backend server and launches the GUI.
 
-### Installing the CLI tool to your path
+#### Installing the CLI tool to your path
 
 From within the repo's root, run:
 
@@ -49,7 +49,7 @@ go install .
 
 Now you can call `wslp` directly from anywhere.
 
-## CLI Usage
+### CLI Usage
 
 The CLI provides direct command-line access to WSL management functions.
 
@@ -92,7 +92,7 @@ wslp serve
 This starts the HTTP API server on port 8080 (default). This is required
 for the GUI to function.
 
-## GUI Usage
+### GUI Usage
 
 The GUI provides a visual interface for managing WSL distributions.
 
