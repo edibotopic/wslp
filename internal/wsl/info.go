@@ -100,8 +100,9 @@ func GetDistroDetailInfo(ctx context.Context, name string) (DistroDetailInfo, er
 
 	// Get GUID
 	guid, err := distro.GUID()
+	var guidStr string
 	if err == nil {
-		guidStr := guid.String()
+		guidStr = guid.String()
 		info.GUID = guidStr
 
 		// Get Flavor from registry using GUID
@@ -110,14 +111,31 @@ func GetDistroDetailInfo(ctx context.Context, name string) (DistroDetailInfo, er
 			info.Flavor = flavor
 			info.IsUbuntu = strings.EqualFold(flavor, "ubuntu")
 
-			}
+		}
 	}
 
-	// Get configuration
-	config, err := distro.GetConfiguration()
-	if err == nil {
+	// Get configuration. The WslGetDistributionConfiguration Win32 API this
+	// wraps has been observed to intermittently return a zero-value struct
+	// with a nil error (e.g. right after a distro starts), which would
+	// otherwise show an "impossible" WSL version of 0 and a DefaultUID of 0.
+	// The Lxss registry key is a more reliable source for Version and
+	// DefaultUid, so prefer it and only fall back to the API result if the
+	// registry read fails (e.g. on older/atypical distros).
+	config, configErr := distro.GetConfiguration()
+	registryVersion, registryUID, regErr := 0, uint32(0), fmt.Errorf("no guid")
+	if guidStr != "" {
+		registryVersion, registryUID, regErr = getDistroRegistryVersionAndUID(guidStr)
+	}
+
+	if regErr == nil {
+		info.WSLVersion = registryVersion
+		info.DefaultUID = registryUID
+	} else if configErr == nil {
 		info.WSLVersion = int(config.Version)
 		info.DefaultUID = config.DefaultUID
+	}
+
+	if configErr == nil {
 		info.InteropEnabled = config.InteropEnabled
 		info.DriveMounting = config.DriveMountingEnabled
 		info.PathAppended = config.PathAppended
@@ -132,6 +150,37 @@ func GetDistroDetailInfo(ctx context.Context, name string) (DistroDetailInfo, er
 	}
 
 	return info, nil
+}
+
+// getDistroRegistryVersionAndUID retrieves the WSL version (1 or 2) and the
+// DefaultUid values directly from the distro's Lxss registry key. These
+// values are written by WSL itself whenever the distro is created or its
+// default user changes, so they remain correct even when the
+// WslGetDistributionConfiguration Win32 API returns a stale/zero result.
+func getDistroRegistryVersionAndUID(guid string) (version int, defaultUID uint32, err error) {
+	// Ensure GUID has braces
+	if guid[0] != '{' {
+		guid = "{" + guid + "}"
+	}
+
+	keyPath := fmt.Sprintf(`Software\Microsoft\Windows\CurrentVersion\Lxss\%s`, guid)
+	key, err := registry.OpenKey(registry.CURRENT_USER, keyPath, registry.QUERY_VALUE)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to open distro registry key: %w", err)
+	}
+	defer key.Close()
+
+	versionVal, _, err := key.GetIntegerValue("Version")
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read Version value: %w", err)
+	}
+
+	uidVal, _, err := key.GetIntegerValue("DefaultUid")
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to read DefaultUid value: %w", err)
+	}
+
+	return int(versionVal), uint32(uidVal), nil
 }
 
 // getDistroFlavor retrieves the Flavor value from the registry

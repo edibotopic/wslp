@@ -38,6 +38,9 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/ubuntu-telemetry", s.handleUbuntuTelemetry)
 	mux.HandleFunc("/api/wsl-info", s.handleWSLInfo)
 	mux.HandleFunc("/api/distro-info", s.handleDistroInfo)
+	mux.HandleFunc("/api/workshops", s.handleWorkshops)
+	mux.HandleFunc("/api/workshop-action", s.handleWorkshopAction)
+	mux.HandleFunc("/api/workshop-shell", s.handleWorkshopShell)
 
 	// Add CORS middleware for Flutter
 	handler := corsMiddleware(mux)
@@ -371,6 +374,124 @@ func (s *Server) handleDistroInfo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(info)
+}
+
+// handleWorkshops reports the Canonical Workshop (canonical/workshop)
+// environments running inside a distro, if any. Workshop is optional
+// third-party tooling, so this endpoint never errors when it's absent —
+// it just reports zero workshops.
+func (s *Server) handleWorkshops(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := r.URL.Query().Get("distro")
+	if name == "" {
+		http.Error(w, "No distro name specified", http.StatusBadRequest)
+		return
+	}
+
+	workshops := wsl.GetWorkshops(context.Background(), name, wsl.RealWorkshopRunner{})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"workshops": workshops,
+	})
+}
+
+// handleWorkshopAction starts or stops a single Workshop environment inside
+// a distro (blocking; workshop start/stop typically complete in a few
+// seconds).
+func (s *Server) handleWorkshopAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Distro  string `json:"distro"`
+		Project string `json:"project"`
+		Name    string `json:"name"`
+		Action  string `json:"action"` // "start" or "stop"
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.Distro == "" || request.Project == "" || request.Name == "" {
+		http.Error(w, "distro, project and name are required", http.StatusBadRequest)
+		return
+	}
+
+	controller := wsl.RealWorkshopController{}
+
+	var err error
+	switch request.Action {
+	case "start":
+		err = wsl.StartWorkshop(context.Background(), request.Distro, request.Project, request.Name, controller)
+	case "stop":
+		err = wsl.StopWorkshop(context.Background(), request.Distro, request.Project, request.Name, controller)
+	default:
+		http.Error(w, "action must be 'start' or 'stop'", http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+
+	verb := "started"
+	if request.Action == "stop" {
+		verb = "stopped"
+	}
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Workshop %s %s", request.Name, verb),
+	})
+}
+
+// handleWorkshopShell opens an interactive `workshop shell` session for a
+// workshop in a new terminal window (non-blocking), mirroring /api/launch.
+func (s *Server) handleWorkshopShell(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		Distro  string `json:"distro"`
+		Project string `json:"project"`
+		Name    string `json:"name"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if request.Distro == "" || request.Project == "" || request.Name == "" {
+		http.Error(w, "distro, project and name are required", http.StatusBadRequest)
+		return
+	}
+
+	if err := wsl.LaunchWorkshopShell(context.Background(), request.Distro, request.Project, request.Name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": fmt.Sprintf("Launched shell for workshop %s", request.Name),
+	})
 }
 
 func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) {

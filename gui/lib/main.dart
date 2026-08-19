@@ -42,6 +42,10 @@ class _MainScreenState extends State<MainScreen> {
   String _currentlyInstalling = '';
   Timer? _refreshTimer;
   bool _ubuntuTelemetry = false;
+  // Workshop (canonical/workshop) environments found per distro, keyed by
+  // distro name (lowercased). Populated lazily/best-effort; a missing entry
+  // just means "not checked yet or none found".
+  final Map<String, List<Map<String, dynamic>>> _workshopsByDistro = {};
 
   @override
   void initState() {
@@ -80,8 +84,76 @@ class _MainScreenState extends State<MainScreen> {
       });
       final runningCount = distros.where((d) => d['running'] as bool).length;
       _addLog('Loaded ${distros.length} distro(s), $runningCount running, default: "$defaultDistro"');
+
+      // Only running distros can be queried for Workshop environments.
+      // Fire-and-forget: each fetch updates state independently as it
+      // completes, and failures are silently treated as "no workshops".
+      for (final distro in distros) {
+        if (distro['running'] as bool) {
+          _loadWorkshops(distro['name'] as String);
+        } else {
+          _workshopsByDistro.remove((distro['name'] as String).toLowerCase());
+        }
+      }
     } catch (e) {
       _addLog('Error: $e');
+    }
+  }
+
+  Future<void> _loadWorkshops(String distro) async {
+    try {
+      final workshops = await ApiService.getWorkshops(distro);
+      if (!mounted) return;
+      setState(() {
+        _workshopsByDistro[distro.toLowerCase()] = workshops;
+      });
+    } catch (_) {
+      // Workshop is optional third-party tooling; treat any failure to
+      // reach it as "no workshops" rather than surfacing an error.
+    }
+  }
+
+  Future<void> _workshopStart(String distro, String project, String name) async {
+    _addLog('Starting workshop $name...');
+    try {
+      await ApiService.workshopAction(
+        distro: distro,
+        project: project,
+        name: name,
+        action: 'start',
+      );
+      _addLog('✓ Started workshop $name');
+    } catch (e) {
+      _addLog('✗ Error starting workshop $name: $e');
+    } finally {
+      _loadWorkshops(distro);
+    }
+  }
+
+  Future<void> _workshopStop(String distro, String project, String name) async {
+    _addLog('Stopping workshop $name...');
+    try {
+      await ApiService.workshopAction(
+        distro: distro,
+        project: project,
+        name: name,
+        action: 'stop',
+      );
+      _addLog('✓ Stopped workshop $name');
+    } catch (e) {
+      _addLog('✗ Error stopping workshop $name: $e');
+    } finally {
+      _loadWorkshops(distro);
+    }
+  }
+
+  Future<void> _workshopShell(String distro, String project, String name) async {
+    _addLog('Opening shell for workshop $name...');
+    try {
+      await ApiService.shellWorkshop(distro: distro, project: project, name: name);
+      _addLog('✓ Opened shell for workshop $name');
+    } catch (e) {
+      _addLog('✗ Error opening shell for workshop $name: $e');
     }
   }
 
@@ -862,6 +934,7 @@ class _MainScreenState extends State<MainScreen> {
                                   ],
                                 ],
                               ),
+                              subtitle: _buildWorkshopBadges(distro),
                               onTap: () => _launchDistro(distro),
                               trailing: PopupMenuButton<String>(
                                 itemBuilder: (context) {
@@ -1053,6 +1126,103 @@ class _MainScreenState extends State<MainScreen> {
         ),
       ],
     );
+  }
+
+  /// Renders a small badge per Workshop (canonical/workshop) environment
+  /// found in [distro], colored by its lifecycle status. Each badge opens a
+  /// menu with Start/Stop/Shell actions appropriate for its current status.
+  /// Returns null when there's nothing to show, so the ListTile subtitle
+  /// collapses cleanly.
+  Widget? _buildWorkshopBadges(String distro) {
+    final workshops = _workshopsByDistro[distro.toLowerCase()];
+    if (workshops == null || workshops.isEmpty) {
+      return null;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4.0),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: workshops.map((ws) {
+          final status = ws['status'] as String? ?? '';
+          final name = ws['name'] as String? ?? '';
+          final project = ws['project'] as String? ?? '';
+          final statusLower = status.toLowerCase();
+          final canStart = statusLower == 'stopped' || statusLower == 'off';
+          final canStop = !canStart;
+          final canShell = statusLower == 'ready' || statusLower == 'waiting';
+
+          return PopupMenuButton<String>(
+            tooltip: 'Workshop actions',
+            padding: EdgeInsets.zero,
+            itemBuilder: (context) => [
+              if (canStart)
+                const PopupMenuItem(value: 'start', child: Text('Start')),
+              if (canStop)
+                const PopupMenuItem(value: 'stop', child: Text('Stop')),
+              if (canShell)
+                const PopupMenuItem(value: 'shell', child: Text('Shell')),
+            ],
+            onSelected: (value) {
+              switch (value) {
+                case 'start':
+                  _workshopStart(distro, project, name);
+                  break;
+                case 'stop':
+                  _workshopStop(distro, project, name);
+                  break;
+                case 'shell':
+                  _workshopShell(distro, project, name);
+                  break;
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                border: Border.all(color: _workshopStatusColor(status)),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.circle, size: 8, color: _workshopStatusColor(status)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$name · $status',
+                    style: const TextStyle(fontSize: 11),
+                  ),
+                  if (canStart || canStop || canShell) ...[
+                    const SizedBox(width: 2),
+                    const Icon(Icons.arrow_drop_down, size: 14),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// Maps a Workshop status string to a badge color, following the
+  /// documented lifecycle: Off/Stopped are neutral, Ready is healthy,
+  /// Waiting/Pending are transient, and Error is a problem.
+  Color _workshopStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'ready':
+        return Colors.green;
+      case 'error':
+        return Colors.red;
+      case 'waiting':
+        return Colors.orange;
+      case 'pending':
+        return Colors.blue;
+      case 'stopped':
+      case 'off':
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
