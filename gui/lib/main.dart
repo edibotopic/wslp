@@ -1,11 +1,38 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show AppExitResponse;
 import 'package:flutter/material.dart';
 import 'package:yaru/yaru.dart';
 import 'services/api_service.dart';
 
-void main() {
+void main(List<String> args) {
+  ApiService.configurePort(_resolvePort(args));
   runApp(const MainApp());
+}
+
+/// Resolves which port the GUI should talk to the wslp server on, so the
+/// GUI can be pointed at a server started with a custom port (e.g.
+/// `wslp serve --port 9090`). Checks, in order:
+/// 1. A `--port=<n>` or `--port <n>` command-line argument
+/// 2. A `WSLP_PORT` environment variable
+/// 3. The default, 8080
+String _resolvePort(List<String> args) {
+  for (var i = 0; i < args.length; i++) {
+    final arg = args[i];
+    if (arg.startsWith('--port=')) {
+      return arg.substring('--port='.length);
+    }
+    if (arg == '--port' && i + 1 < args.length) {
+      return args[i + 1];
+    }
+  }
+
+  final envPort = Platform.environment['WSLP_PORT'];
+  if (envPort != null && envPort.isNotEmpty) {
+    return envPort;
+  }
+
+  return '8080';
 }
 
 class MainApp extends StatelessWidget {
@@ -46,6 +73,7 @@ class _MainScreenState extends State<MainScreen> {
   // distro name (lowercased). Populated lazily/best-effort; a missing entry
   // just means "not checked yet or none found".
   final Map<String, List<Map<String, dynamic>>> _workshopsByDistro = {};
+  AppLifecycleListener? _lifecycleListener;
 
   @override
   void initState() {
@@ -58,11 +86,29 @@ class _MainScreenState extends State<MainScreen> {
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _loadDistros();
     });
+
+    // The GUI depends on the wslp server, so when the user closes this
+    // window (native close button), stop the server too rather than
+    // leaving it running in the background. There's deliberately no
+    // in-app "stop server" button for this — only this automatic
+    // close-triggered cleanup.
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: () async {
+        try {
+          await ApiService.shutdownServer();
+        } catch (_) {
+          // Server may already be down / unreachable — proceed with exit
+          // regardless.
+        }
+        return AppExitResponse.exit;
+      },
+    );
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _lifecycleListener?.dispose();
     super.dispose();
   }
 

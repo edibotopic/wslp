@@ -3,15 +3,18 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"wslp/internal/config"
 	"wslp/internal/wsl"
 )
 
 type Server struct {
-	port string
+	port       string
+	httpServer *http.Server
 }
 
 func NewServer(port string) *Server {
@@ -20,6 +23,12 @@ func NewServer(port string) *Server {
 	}
 }
 
+// Start runs the HTTP server, blocking until it is shut down via Shutdown
+// (triggered by an OS signal / Ctrl+C in cmd/serve.go, or via the
+// /api/shutdown endpoint used by the GUI when its window closes so the
+// server it depends on doesn't linger). It returns nil on a graceful
+// shutdown, or an error if the server failed to start/run for any other
+// reason.
 func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
@@ -41,13 +50,61 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/workshops", s.handleWorkshops)
 	mux.HandleFunc("/api/workshop-action", s.handleWorkshopAction)
 	mux.HandleFunc("/api/workshop-shell", s.handleWorkshopShell)
+	mux.HandleFunc("/api/shutdown", s.handleShutdown)
 
 	// Add CORS middleware for Flutter
 	handler := corsMiddleware(mux)
 
 	addr := fmt.Sprintf(":%s", s.port)
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: handler,
+	}
+
 	fmt.Printf("Starting server on http://localhost%s\n", addr)
-	return http.ListenAndServe(addr, handler)
+	err := s.httpServer.ListenAndServe()
+	if err != nil && errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+// Shutdown gracefully stops the running server, letting in-flight requests
+// finish (bounded by ctx). Safe to call even if the server hasn't finished
+// starting yet.
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.httpServer == nil {
+		return nil
+	}
+	return s.httpServer.Shutdown(ctx)
+}
+
+// handleShutdown gracefully stops the server. Intended to be called
+// automatically by the GUI when its window closes (not exposed as a
+// user-facing button — the GUI has no manual "stop server" control), so
+// the server doesn't keep running after the app that depends on it has
+// exited. The HTTP response is written before shutdown begins so the
+// caller reliably sees success.
+func (s *Server) handleShutdown(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Server shutting down",
+	})
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		s.Shutdown(ctx)
+	}()
 }
 
 func (s *Server) handleListDistros(w http.ResponseWriter, r *http.Request) {

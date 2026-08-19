@@ -2,7 +2,18 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080';
+  // Defaults to 8080 (the wslp `serve` command's default port), but can be
+  // pointed at a different port via [configurePort] — see main() for how
+  // this is wired up to a --port=<n> command-line argument / WSLP_PORT
+  // environment variable, so the GUI can talk to a server started with a
+  // custom port.
+  static String _port = '8080';
+
+  static String get baseUrl => 'http://localhost:$_port';
+
+  static void configurePort(String port) {
+    _port = port;
+  }
 
   static Future<List<Map<String, dynamic>>> getDistros() async {
     final response = await http.get(Uri.parse('$baseUrl/api/distros'));
@@ -274,6 +285,18 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Failed to open workshop shell: ${response.body}');
+    }
+  }
+
+  /// Gracefully stops the wslp server. The server acknowledges the request
+  /// and then shuts itself down asynchronously, so a successful response
+  /// here doesn't guarantee it's fully stopped yet, only that it accepted
+  /// the request.
+  static Future<void> shutdownServer() async {
+    final response = await http.post(Uri.parse('$baseUrl/api/shutdown'));
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to stop server: ${response.body}');
     }
   }
 
