@@ -1,6 +1,6 @@
 # WSL Plus
 
-Personal project to make a management tool for WSL.
+Prototype management tool for WSL.
 
 [docs-image]: https://readthedocs.org/projects/wslp/badge/?version=latest
 [docs-url-stable]: https://wslp.readthedocs.io/
