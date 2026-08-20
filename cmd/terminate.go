@@ -9,33 +9,9 @@ import (
 	"wslp/internal/wsl"
 )
 
-func init() {
-	RootCmd.AddCommand(newTerminateCmd())
-}
-
-func newTerminateCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "terminate <distro> [distro...]",
-		Aliases: []string{"stop", "kill"},
-		Short:   "Terminate one or more running WSL distributions",
-		Long: `Terminate (stop) one or more running WSL distributions.
-
-This is useful before performing operations like backups, or to free up system resources.
-Terminating a distro will stop all processes running in that distribution.`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTerminate(cmd.OutOrStdout(), args)
-		},
-	}
-
-	return cmd
-}
-
-func runTerminate(w io.Writer, distros []string) error {
-	ctx := context.Background()
-
-	terminator := wsl.RealTerminator{}
-	results := wsl.TerminateDistros(ctx, terminator, distros)
+// TerminateDistrosCmd terminates one or more running WSL distributions.
+func TerminateDistrosCmd(ctx context.Context, t wsl.Terminator, w io.Writer, distros []string) error {
+	results := wsl.TerminateDistros(ctx, t, distros)
 
 	// Print results
 	successCount := 0
@@ -57,4 +33,26 @@ func runTerminate(w io.Writer, distros []string) error {
 	}
 
 	return nil
+}
+
+func init() {
+	RootCmd.AddCommand(newTerminateCmd())
+}
+
+func newTerminateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "terminate <distro> [distro...]",
+		Aliases: []string{"stop", "kill"},
+		Short:   "Terminate one or more running WSL distributions",
+		Long: `Terminate (stop) one or more running WSL distributions.
+
+This is useful before performing operations like backups, or to free up system resources.
+Terminating a distro will stop all processes running in that distribution.`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return TerminateDistrosCmd(context.Background(), wsl.RealTerminator{}, cmd.OutOrStdout(), args)
+		},
+	}
+
+	return cmd
 }

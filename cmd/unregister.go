@@ -9,33 +9,9 @@ import (
 	"wslp/internal/wsl"
 )
 
-func init() {
-	RootCmd.AddCommand(newUnregisterCmd())
-}
-
-func newUnregisterCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:     "unregister <distro> [distro...]",
-		Aliases: []string{"delete", "remove"},
-		Short:   "Unregister one or more WSL distributions",
-		Long: `Unregister (delete) one or more WSL distributions.
-
-WARNING: This will permanently delete the distribution and all its data.
-Make sure to backup any important data before unregistering.`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runUnregister(cmd.OutOrStdout(), args)
-		},
-	}
-
-	return cmd
-}
-
-func runUnregister(w io.Writer, distros []string) error {
-	ctx := context.Background()
-
-	unregisterer := wsl.RealUnregisterer{}
-	results := wsl.UnregisterDistros(ctx, unregisterer, distros)
+// UnregisterDistrosCmd unregisters one or more WSL distributions.
+func UnregisterDistrosCmd(ctx context.Context, u wsl.Unregisterer, w io.Writer, distros []string) error {
+	results := wsl.UnregisterDistros(ctx, u, distros)
 
 	// Print results
 	successCount := 0
@@ -57,4 +33,26 @@ func runUnregister(w io.Writer, distros []string) error {
 	}
 
 	return nil
+}
+
+func init() {
+	RootCmd.AddCommand(newUnregisterCmd())
+}
+
+func newUnregisterCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "unregister <distro> [distro...]",
+		Aliases: []string{"delete", "remove"},
+		Short:   "Unregister one or more WSL distributions",
+		Long: `Unregister (delete) one or more WSL distributions.
+
+WARNING: This will permanently delete the distribution and all its data.
+Make sure to backup any important data before unregistering.`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return UnregisterDistrosCmd(context.Background(), wsl.RealUnregisterer{}, cmd.OutOrStdout(), args)
+		},
+	}
+
+	return cmd
 }

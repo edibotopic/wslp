@@ -13,13 +13,39 @@ import (
 )
 
 type Server struct {
-	port       string
+	port string
+	// HTTP server instance (nil until Start() is called)
 	httpServer *http.Server
+
+	// Optional dependency injection fields for testing. When nil, defaults
+	// are used (matching the same Real* implementations used in production).
+	// Tests can inject mocks via New*Server constructors or direct field assignment.
+	lister             wsl.Lister
+	defaultGetter      wsl.DefaultGetter
+	defaultSetter      wsl.DefaultSetter
+	unregisterer       wsl.Unregisterer
+	backuper           wsl.Backuper
+	terminator         wsl.Terminator
+	renamer            wsl.Renamer
+	copier             wsl.Copier
+	workshopRunner     wsl.WorkshopRunner
+	workshopController wsl.WorkshopController
 }
 
 func NewServer(port string) *Server {
 	return &Server{
 		port: port,
+		// DI defaults - same Real* implementations used today
+		lister:             wsl.RealLister{},
+		defaultGetter:      wsl.RealDefaultGetter{},
+		defaultSetter:      wsl.RealDefaultSetter{},
+		unregisterer:       wsl.RealUnregisterer{},
+		backuper:           wsl.RealBackuper{},
+		terminator:         wsl.RealTerminator{},
+		renamer:            wsl.RealRenamer{},
+		copier:             wsl.RealCopier{},
+		workshopRunner:     wsl.RealWorkshopRunner{},
+		workshopController: wsl.RealWorkshopController{},
 	}
 }
 
@@ -113,7 +139,7 @@ func (s *Server) handleListDistros(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	distros, err := wsl.ListDistros(context.Background(), wsl.RealLister{})
+	distros, err := wsl.ListDistros(context.Background(), s.lister)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -132,7 +158,7 @@ func (s *Server) handleGetDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defaultDistro, err := wsl.GetDefaultDistro(context.Background(), wsl.RealDefaultGetter{})
+	defaultDistro, err := wsl.GetDefaultDistro(context.Background(), s.defaultGetter)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -211,8 +237,7 @@ func (s *Server) handleUnregister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	unregisterer := wsl.RealUnregisterer{}
-	results := wsl.UnregisterDistros(context.Background(), unregisterer, request.Distros)
+	results := wsl.UnregisterDistros(context.Background(), s.unregisterer, request.Distros)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -240,7 +265,7 @@ func (s *Server) handleSetDefault(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := wsl.SetDefaultDistro(context.Background(), request.Name, wsl.RealDefaultSetter{}); err != nil {
+	if err := wsl.SetDefaultDistro(context.Background(), request.Name, s.defaultSetter); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -296,8 +321,7 @@ func (s *Server) handleBackup(w http.ResponseWriter, r *http.Request) {
 		CustomName: request.CustomName,
 	}
 
-	backuper := wsl.RealBackuper{}
-	results := wsl.BackupDistros(context.Background(), backuper, request.Distros, backupDir, opts)
+	results := wsl.BackupDistros(context.Background(), s.backuper, request.Distros, backupDir, opts)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -325,8 +349,7 @@ func (s *Server) handleTerminate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	terminator := wsl.RealTerminator{}
-	results := wsl.TerminateDistros(context.Background(), terminator, request.Distros)
+	results := wsl.TerminateDistros(context.Background(), s.terminator, request.Distros)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -388,8 +411,7 @@ func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	renamer := wsl.RealRenamer{}
-	result := wsl.RenameDistro(context.Background(), renamer, request.OldName, request.NewName)
+	result := wsl.RenameDistro(context.Background(), s.renamer, request.OldName, request.NewName)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
@@ -449,7 +471,7 @@ func (s *Server) handleWorkshops(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workshops := wsl.GetWorkshops(context.Background(), name, wsl.RealWorkshopRunner{})
+	workshops := wsl.GetWorkshops(context.Background(), name, s.workshopRunner)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -483,14 +505,12 @@ func (s *Server) handleWorkshopAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	controller := wsl.RealWorkshopController{}
-
 	var err error
 	switch request.Action {
 	case "start":
-		err = wsl.StartWorkshop(context.Background(), request.Distro, request.Project, request.Name, controller)
+		err = wsl.StartWorkshop(context.Background(), request.Distro, request.Project, request.Name, s.workshopController)
 	case "stop":
-		err = wsl.StopWorkshop(context.Background(), request.Distro, request.Project, request.Name, controller)
+		err = wsl.StopWorkshop(context.Background(), request.Distro, request.Project, request.Name, s.workshopController)
 	default:
 		http.Error(w, "action must be 'start' or 'stop'", http.StatusBadRequest)
 		return
@@ -573,8 +593,7 @@ func (s *Server) handleCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	copier := wsl.RealCopier{}
-	result := wsl.CopyDistro(context.Background(), copier, request.Source, request.NewName, request.InstallDir)
+	result := wsl.CopyDistro(context.Background(), s.copier, request.Source, request.NewName, request.InstallDir)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
