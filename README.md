@@ -5,13 +5,9 @@ Personal project to make a management tool for WSL.
 [docs-image]: https://readthedocs.org/projects/wslp/badge/?version=latest
 [docs-url-stable]: https://wslp.readthedocs.io/
 
-[![codecov](https://codecov.io/gh/edibotopic/wslp/graph/badge.svg?token=2UFTX053L0)](https://codecov.io/gh/edibotopic/wslp) [![Documentation Status][docs-image]][docs-url-stable]
-
 ## Usage
 
 WSL Plus provides two interfaces for managing WSL distributions: a command-line interface (CLI) and a graphical user interface (GUI).
-
-It is recommended that you build it from source to test it, although [downloadable releases](https://github.com/edibotopic/wslp/releases/tag/v0.1) are provided if you have difficulty with building.
 
 ### Prerequisites for building
 
@@ -25,8 +21,8 @@ the CLI and the tool using the batch scripts in the repo.
 
 After cloning the repo, build the CLI and the GUI with `build.bat`.
 
-Then, still within root of the repo, the
-following steps will enable usage of the CLI and GUI.
+Then, still within root of the repo, the following steps will enable usage of
+the CLI and GUI.
 
 - **For CLI**: Use `wslp.exe` directly
 
@@ -100,27 +96,6 @@ The main screen displays all registered WSL distributions as cards. The
 default distribution is highlighted with a badge and appears first in
 the list.
 
-Click the **Refresh List** button in the sidebar to reload the current list of distributions.
-Note that the list auto-refreshes every 5 seconds.
-
 The GUI offers both bulk commands, which are accessible from the side
 navigation, and per-distro commands, which are accessible in the context
 menu for each distro.
-
-The activity log at the bottom of the screen shows:
-- Successful operations (marked with ✓ in green)
-- Errors (marked with ✗ in red)
-- Installation progress
-
-Click **Clear Log** to reset the activity log.
-
-## Future work
-
-- Add tests so the coverage isn't so low
-- Refactor Dart code so it isn't one file
-- More distro-specific actions
-- Test the limits of concurrent installs
-- Use concurrency for more things
-- Better feature parity between GUI and CLI
-- Implement stub commands
-- Easier setup and install for users
