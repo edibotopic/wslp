@@ -114,8 +114,8 @@ The main screen displays all registered WSL distributions as cards. The
 default distribution is highlighted with a badge and appears first in
 the list.
 
-Click the **Refresh List** button in the sidebar to reload the current list of distributions.
-Note that the list auto-refreshes every 5 seconds.
+Click the **Refresh List** button in the sidebar to reload the current list of
+distributions. Note that the list auto-refreshes every 5 seconds.
 
 The GUI offers both bulk commands, which are accessible from the side
 navigation, and per-distro commands, which are accessible in the context
@@ -129,3 +129,11 @@ The activity log at the bottom of the screen shows:
 
 Click **Clear Log** to reset the activity log.
 
+#### Workshop environments
+
+If a distro has [Workshop](https://ubuntu.com/workshop/docs/) environments, the
+GUI shows a badge for each one under that distro, with its current status (e.g.
+Running, Stopped). Click a badge to Start, Stop, or open a Shell into that
+environment.
+
+Workshop status and controls are currently GUI-only and there is no CLI equivalent.
