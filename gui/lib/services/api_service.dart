@@ -2,7 +2,18 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://localhost:8080';
+  // Defaults to 8080 (the wslp `serve` command's default port), but can be
+  // pointed at a different port via [configurePort] — see main() for how
+  // this is wired up to a --port=<n> command-line argument / WSLP_PORT
+  // environment variable, so the GUI can talk to a server started with a
+  // custom port.
+  static String _port = '8080';
+
+  static String get baseUrl => 'http://localhost:$_port';
+
+  static void configurePort(String port) {
+    _port = port;
+  }
 
   static Future<List<Map<String, dynamic>>> getDistros() async {
     final response = await http.get(Uri.parse('$baseUrl/api/distros'));
@@ -201,6 +212,91 @@ class ApiService {
       return json.decode(response.body) as Map<String, dynamic>;
     } else {
       throw Exception('Failed to get distro info');
+    }
+  }
+
+  /// Lists Canonical Workshop (canonical/workshop) environments running
+  /// inside [name]. Returns an empty list if Workshop isn't installed in
+  /// that distro — this is expected, not an error condition.
+  static Future<List<Map<String, dynamic>>> getWorkshops(String name) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/workshops?distro=${Uri.encodeComponent(name)}'),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      final workshops = data['workshops'] as List;
+      return workshops.map((w) => {
+        'project': w['project'] as String,
+        'name': w['name'] as String,
+        'status': w['status'] as String,
+      }).toList();
+    } else {
+      throw Exception('Failed to load workshops');
+    }
+  }
+
+  /// Starts or stops the named workshop (project/name identify it, as
+  /// returned by [getWorkshops]). Throws with the server's error message
+  /// (e.g. "workshop is already started") on failure.
+  static Future<void> workshopAction({
+    required String distro,
+    required String project,
+    required String name,
+    required String action,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/workshop-action'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'distro': distro,
+        'project': project,
+        'name': name,
+        'action': action,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to $action workshop: ${response.body}');
+    }
+
+    final data = json.decode(response.body);
+    if (data['success'] != true) {
+      throw Exception(data['message'] as String? ?? 'Failed to $action workshop');
+    }
+  }
+
+  /// Opens an interactive `workshop shell` session for the named workshop
+  /// in a new terminal window (non-blocking).
+  static Future<void> shellWorkshop({
+    required String distro,
+    required String project,
+    required String name,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/workshop-shell'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'distro': distro,
+        'project': project,
+        'name': name,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to open workshop shell: ${response.body}');
+    }
+  }
+
+  /// Gracefully stops the wslp server. The server acknowledges the request
+  /// and then shuts itself down asynchronously, so a successful response
+  /// here doesn't guarantee it's fully stopped yet, only that it accepted
+  /// the request.
+  static Future<void> shutdownServer() async {
+    final response = await http.post(Uri.parse('$baseUrl/api/shutdown'));
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to stop server: ${response.body}');
     }
   }
 

@@ -10,40 +10,8 @@ import (
 	"wslp/internal/wsl"
 )
 
-func init() {
-	RootCmd.AddCommand(newBackupCmd())
-}
-
-func newBackupCmd() *cobra.Command {
-	var customName string
-	var backupDir string
-
-	cmd := &cobra.Command{
-		Use:   "backup <distro> [distro...]",
-		Short: "Backup one or more WSL distributions",
-		Long: `Backup one or more WSL distributions to tar.gz files.
-
-By default, backups are saved to %USERPROFILE%\WSLBackups with an auto-generated
-name including the distro name and timestamp (e.g., Ubuntu-20240301-143022.tar.gz).
-
-You can specify a custom name for single distro backups using the --name flag.
-The backup directory can be customized via the --backup-dir flag or by setting
-backup_dir in ~/.wslp.yaml, or via the WSLP_BACKUP_DIR environment variable.`,
-		Args: cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runBackup(cmd.OutOrStdout(), args, customName, backupDir)
-		},
-	}
-
-	cmd.Flags().StringVarP(&customName, "name", "n", "", "Custom name for the backup file (only for single distro)")
-	cmd.Flags().StringVarP(&backupDir, "backup-dir", "d", "", "Directory to save backups (overrides config)")
-
-	return cmd
-}
-
-func runBackup(w io.Writer, distros []string, customName, backupDir string) error {
-	ctx := context.Background()
-
+// BackupDistrosCmd backs up one or more WSL distributions.
+func BackupDistrosCmd(ctx context.Context, b wsl.Backuper, w io.Writer, distros []string, customName, backupDir string) error {
 	// If customName is provided but multiple distros, return error
 	if customName != "" && len(distros) > 1 {
 		return fmt.Errorf("custom name can only be used when backing up a single distribution")
@@ -63,8 +31,7 @@ func runBackup(w io.Writer, distros []string, customName, backupDir string) erro
 		CustomName: customName,
 	}
 
-	backuper := wsl.RealBackuper{}
-	results := wsl.BackupDistros(ctx, backuper, distros, backupDir, opts)
+	results := wsl.BackupDistros(ctx, b, distros, backupDir, opts)
 
 	// Print results
 	successCount := 0
@@ -87,4 +54,35 @@ func runBackup(w io.Writer, distros []string, customName, backupDir string) erro
 	}
 
 	return nil
+}
+
+func init() {
+	RootCmd.AddCommand(newBackupCmd())
+}
+
+func newBackupCmd() *cobra.Command {
+	var customName string
+	var backupDir string
+
+	cmd := &cobra.Command{
+		Use:   "backup <distro> [distro...]",
+		Short: "Backup one or more WSL distributions",
+		Long: `Backup one or more WSL distributions to tar.gz files.
+
+By default, backups are saved to %USERPROFILE%\WSLBackups with an auto-generated
+name including the distro name and timestamp (e.g., Ubuntu-20240301-143022.tar.gz).
+
+You can specify a custom name for single distro backups using the --name flag.
+The backup directory can be customized via the --backup-dir flag or by setting
+backup_dir in ~/.wslp.yaml, or via the WSLP_BACKUP_DIR environment variable.`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return BackupDistrosCmd(context.Background(), wsl.RealBackuper{}, cmd.OutOrStdout(), args, customName, backupDir)
+		},
+	}
+
+	cmd.Flags().StringVarP(&customName, "name", "n", "", "Custom name for the backup file (only for single distro)")
+	cmd.Flags().StringVarP(&backupDir, "backup-dir", "d", "", "Directory to save backups (overrides config)")
+
+	return cmd
 }

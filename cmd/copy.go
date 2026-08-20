@@ -9,6 +9,22 @@ import (
 	"wslp/internal/wsl"
 )
 
+// CopyDistroCmd copies a WSL distribution under a new name.
+func CopyDistroCmd(ctx context.Context, c wsl.Copier, w io.Writer, source, newName, installDir string) error {
+	fmt.Fprintf(w, "Copying %s to %s...\n", source, newName)
+
+	result := wsl.CopyDistro(ctx, c, source, newName, installDir)
+
+	if result.Success {
+		fmt.Fprintf(w, "✓ %s\n", result.Message)
+	} else {
+		fmt.Fprintf(w, "✗ %s\n", result.Message)
+		return fmt.Errorf("copy failed")
+	}
+
+	return nil
+}
+
 func init() {
 	RootCmd.AddCommand(newCopyCmd())
 }
@@ -25,29 +41,11 @@ The new distribution is stored in %USERPROFILE%\WSLCopies\<new-name> by default.
 You can override this with the --install-dir flag.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runCopy(cmd.OutOrStdout(), args[0], args[1], installDir)
+			return CopyDistroCmd(context.Background(), wsl.RealCopier{}, cmd.OutOrStdout(), args[0], args[1], installDir)
 		},
 	}
 
 	cmd.Flags().StringVarP(&installDir, "install-dir", "d", "", "Directory to store the new distro's virtual disk (overrides default)")
 
 	return cmd
-}
-
-func runCopy(w io.Writer, source, newName, installDir string) error {
-	ctx := context.Background()
-
-	fmt.Fprintf(w, "Copying %s to %s...\n", source, newName)
-
-	copier := wsl.RealCopier{}
-	result := wsl.CopyDistro(ctx, copier, source, newName, installDir)
-
-	if result.Success {
-		fmt.Fprintf(w, "✓ %s\n", result.Message)
-	} else {
-		fmt.Fprintf(w, "✗ %s\n", result.Message)
-		return fmt.Errorf("copy failed")
-	}
-
-	return nil
 }

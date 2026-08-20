@@ -9,6 +9,21 @@ import (
 	"wslp/internal/wsl"
 )
 
+// RenameDistroCmd renames a WSL distribution.
+func RenameDistroCmd(ctx context.Context, r wsl.Renamer, w io.Writer, oldName, newName string) error {
+	result := wsl.RenameDistro(ctx, r, oldName, newName)
+
+	if result.Success {
+		fmt.Fprintf(w, "✓ %s\n", result.Message)
+		fmt.Fprintf(w, "\nTo apply changes, run:\n")
+		fmt.Fprintf(w, "  wsl --shutdown\n")
+		return nil
+	} else {
+		fmt.Fprintf(w, "✗ %s\n", result.Message)
+		return fmt.Errorf("rename failed")
+	}
+}
+
 func init() {
 	RootCmd.AddCommand(newRenameCmd())
 }
@@ -30,26 +45,9 @@ The rename operation:
 - Updates the registry entry directly (fast, no export/import needed)`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRename(cmd.OutOrStdout(), args[0], args[1])
+			return RenameDistroCmd(context.Background(), wsl.RealRenamer{}, cmd.OutOrStdout(), args[0], args[1])
 		},
 	}
 
 	return cmd
-}
-
-func runRename(w io.Writer, oldName, newName string) error {
-	ctx := context.Background()
-
-	renamer := wsl.RealRenamer{}
-	result := wsl.RenameDistro(ctx, renamer, oldName, newName)
-
-	if result.Success {
-		fmt.Fprintf(w, "✓ %s\n", result.Message)
-		fmt.Fprintf(w, "\nTo apply changes, run:\n")
-		fmt.Fprintf(w, "  wsl --shutdown\n")
-		return nil
-	} else {
-		fmt.Fprintf(w, "✗ %s\n", result.Message)
-		return fmt.Errorf("rename failed")
-	}
 }
